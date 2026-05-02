@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSesh Smoke Test</title>
+  <script src="images/glyphs/sizes.js"></script>
+  <script src="jsesh.umd.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 32px;
+      background: #faf6f0;
+      color: #2c1810;
+      font-family: Georgia, serif;
+    }
+    h1 { margin: 0 0 18px; font-size: 24px; }
+    .case {
+      margin: 14px 0;
+      padding: 16px;
+      background: #fffdf8;
+      border: 1px solid #e8dcc8;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .label {
+      margin-bottom: 8px;
+      color: #8b7355;
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .note {
+      margin-top: 8px;
+      color: #8b7355;
+      font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    #status {
+      margin-top: 18px;
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>JSesh local rendering smoke test</h1>
+  <div id="cases"></div>
+  <div id="status">Rendering...</div>
+
+  <script>
+    function expandShadingToggles(mdc) {
+      let shading = false;
+      return mdc.split(/(#b\b|#e\b)/g).map(part => {
+        if (part === "#b") { shading = true; return " "; }
+        if (part === "#e") { shading = false; return " "; }
+        if (!shading) return part;
+        return part.replace(/([^\s-]+)(?=\s|-|$)/g, token => {
+          if (!token || /^#/.test(token) || /#[1-4]+$/.test(token)) return token;
+          return `${token}#1234`;
+        });
+      }).join("");
+    }
+
+    function normalizeShadeSymbols(mdc) {
+      return mdc
+        .replace(/(^|[\s\-:*()])v\//g, "$1//")
+        .replace(/(^|[\s\-:*()])h\//g, "$1//")
+        .replace(/(^|[\s\-:*()])\/(?!\/)/g, "$1//");
+    }
+
+    function normalizeShadeCodes(mdc) {
+      return mdc.replace(/#([1-4]+)/g, (_, digits) => {
+        const normalized = Array.from(new Set(digits.split("").sort())).join("");
+        return normalized ? `#${normalized}` : "";
+      });
+    }
+
+    function normalizeGlyphVariants(mdc) {
+      return mdc.replace(/[A-Za-z][A-Za-z0-9@]*/g, token => {
+        if (/^LACUNA$/i.test(token)) return "//";
+        if (!window.signsSizes || window.signsSizes[token]) return token;
+        let base = token;
+        while (base.length > 1 && !window.signsSizes[base] && /[A-Z]$/.test(base)) {
+          base = base.slice(0, -1);
+        }
+        return window.signsSizes[base] ? base : token;
+      }).replace(/(?<!#)\b[1-9]\b/g, digit => {
+        const code = `Z${digit}`;
+        return window.signsSizes && window.signsSizes[code] ? code : digit;
+      });
+    }
+
+    function preprocessMdC(mdc) {
+      if (!mdc) return "";
+      let s = mdc;
+      s = s.replace(/\|[^\s-]+(?:\s*-\s*)?/g, "");
+      s = s.replace(/\{\{[^}]*\}\}/g, "");
+      s = s.replace(/_?\*\*/g, "*");
+      s = s.replace(/\\[A-Za-z]+[0-9]*/g, "");
+      s = s.replace(/\\[0-9]+/g, "");
+      s = expandShadingToggles(s);
+      s = s.replace(/-?#b\b/g, "");
+      s = s.replace(/-?#e\b/g, "");
+      s = normalizeShadeSymbols(s);
+      s = normalizeShadeCodes(s);
+      s = s.replace(/\$[rb]?/g, "");
+      s = s.replace(/\?+/g, "//");
+      s = normalizeGlyphVariants(s);
+      s = s.replace(/<(?!-)/g, "<-");
+      s = s.replace(/(?<!-)>/g, "->");
+      s = s.replace(/\s+/g, "-");
+      s = s.replace(/-{2,}/g, "-");
+      s = s.replace(/<-+-/g, "<-");
+      s = s.replace(/-+->/g, "->");
+      s = s.replace(/^-+|-+$/g, "");
+      return s;
+    }
+
+    function gardinerToMdC(searchGardiner) {
+      const normalizeToken = (token) => {
+        let code = token.replace(/[^A-Za-z0-9_]/g, "");
+        if (/^LACUNA$/i.test(code)) return "//";
+        if (/^[1-9]$/.test(code) && window.signsSizes?.[`Z${code}`]) return `Z${code}`;
+        if (!code || !window.signsSizes || window.signsSizes[code]) return code;
+        let base = code;
+        while (base.length > 1 && !window.signsSizes[base] && /[A-Z]$/.test(base)) {
+          base = base.slice(0, -1);
+        }
+        return window.signsSizes[base] ? base : code;
+      };
+      return (searchGardiner || "")
+        .split(/\s+/)
+        .map(g => g.trim())
+        .filter(g => g && g !== "\\t")
+        .map(normalizeToken)
+        .filter(Boolean)
+        .map(g => g.includes("_") ? g.split("_").filter(Boolean).join("&") : g)
+        .join("-");
+    }
+
+    function applyHieroglyphicSvgEnhancements(root) {
+      root.querySelectorAll("svg").forEach(svg => {
+        const shadeRects = [];
+        svg.querySelectorAll("rect").forEach(rect => {
+          const style = rect.getAttribute("style") || "";
+          const fill = rect.getAttribute("fill") || "";
+          const isShade = /fill\s*:\s*rgb\(100,\s*100,\s*100\)/i.test(style)
+            || /rgb\(100,\s*100,\s*100\)/i.test(fill)
+            || rect.getAttribute("data-jsesh-shade");
+          if (isShade) shadeRects.push(rect);
+        });
+        shadeRects.forEach(rect => {
+          const parent = rect.parentNode;
+          if (parent && parent.firstChild !== rect) parent.insertBefore(rect, parent.firstChild);
+          rect.setAttribute("fill", "#CFC8BF");
+          rect.setAttribute("style", "fill:#CFC8BF;opacity:0.55;stroke:none");
+          rect.setAttribute("data-jsesh-shade", "true");
+        });
+      });
+    }
+
+    async function renderWithFallback(node, mdc, gardiner) {
+      const jsesh = window["jsesh-library"];
+      const cleaned = preprocessMdC(mdc);
+      const fallback = gardinerToMdC(gardiner);
+      const render = async (code) => {
+        node.textContent = code;
+        await jsesh.replaceTextWithHieroglyphs(node, { scale: 1.7 });
+        applyHieroglyphicSvgEnhancements(node);
+      };
+      try {
+        await render(cleaned || fallback);
+        return cleaned ? "mdc" : "gardiner";
+      } catch (err) {
+        if (!fallback || fallback === cleaned) throw err;
+        await render(fallback);
+        return "gardiner";
+      }
+    }
+
+    const tests = [
+      {
+        label: "Basic Gardiner codes",
+        mdc: "A1-G17-M17-N35"
+      },
+      {
+        label: "Extended signs O64/O229/T42",
+        mdc: "O64-O229-T42"
+      },
+      {
+        label: "Cartouche and stacking",
+        mdc: "<-M17-Y5:N35->"
+      },
+      {
+        label: "Full and quadrant gray shading",
+        mdc: "A1#1234-G17-//",
+        expectShade: true
+      },
+      {
+        label: "Shade toggles and partial shade symbols",
+        mdc: "#b A1 G17 #e M17-v/-h/-/",
+        expectShade: true
+      },
+      {
+        label: "Desktop line marker and lacuna pattern from screenshot",
+        mdc: "|x+3 - .. .. G17#34 tA:1*N21:p:N35#134 r:S29*(Htp:t*p) 1{{119,534,100}}**nTr\\97 N33AV r:S29*(h:r) i i t:ib*1:n N10:t N33AV{{47,374,52}}**nTr\\97 r:S29*q*A28 /{{193,276,75}}**n\\86**i{{405,314,69}}**pr{{0,678,68}}**1{{811,728,68}} Z3#1234 niwt:3#3 r:x:D43:t*w O7 t{{0,484,100}}**w{{448,5,98}}**pr{{1183,0,68}}**3{{1330,696,91}} O34:n:N33A tp*1:tA:1*N21 r:S29*(Dsr:r) Y1v E9 w n:n:pr*1 O34:N35:3 #b .. .. .. #e",
+        gardiner: "G17 N16 Z15 N21 Q3 N35 D21 S29 R4 X1 Q3 Z15 R8 N33AV D21 S29 O4 D21 M17 M17 X1 F34 Z15 N35 N10 X1 N33AV R8 D21 S29 N29 A28 LACUNA D21 Z15 O1 Z15 Z3 O49 Z15B D21 Aa1 D43 X1 Z7 O7 X1 G43 O1 Z15B O34 N35 N33A D1 Z15 N16 Z15 N21 D21 S29",
+        expectShade: true
+      },
+      {
+        label: "Screenshot failure pattern: desktop rotation command",
+        mdc: ".. .. N-i-mn:N35-A40-.. .. .:f-.. ..:3-tA:1*N21-b*a-H-G32-N35-U7:r-G43-t:f-Aa11\\R270:t-C10A-ii-i-Z4:D54-V13-..-Xnm-m-Y1:N35:O34-i-m-f-..-..-..-..-..-..-X:r:d-G43-Xrd-3-G24:tx3-Hr:1",
+        gardiner: "S3 M17 Y5 N35 A40 I9 Z15B N16 Z15 N21 D58 D36 V28 G32 N35 U7 D21 G43 X1 I9 Aa11 X1 C10A M18 M17 Z4 D54 V13 W9 G17 Y1 N35 O34 M17 G17 I9 F32 D21 D46 G43 A17 Z15B G24 X1 Z15B D2 Z15"
+      },
+      {
+        label: "Screenshot failure pattern: nested groups plus rotation",
+        mdc: ".. .. (Aa11\\R270:t)*C10A-n-i*(t:f:A40)-i*(mn:n:ra)-nb:g:g*g-tA:tA:N21*N21",
+        gardiner: "Aa11 X1 C10A N35 M17 X1 I9 A40 M17 Y5 N35 N5 V30 W11 W11 W11 N16 N16 N21 N21"
+      },
+      {
+        label: "Forced invalid MdC should fall back to Gardiner",
+        mdc: "A1-{broken",
+        gardiner: "A1 G17 M17 N35"
+      }
+    ];
+
+    (async function () {
+      const wrap = document.getElementById("cases");
+      const status = document.getElementById("status");
+      try {
+        for (const test of tests) {
+          const panel = document.createElement("div");
+          panel.className = "case";
+          const label = document.createElement("div");
+          label.className = "label";
+          label.textContent = test.label;
+          const output = document.createElement("div");
+          const note = document.createElement("div");
+          note.className = "note";
+          panel.appendChild(label);
+          panel.appendChild(output);
+          panel.appendChild(note);
+          wrap.appendChild(panel);
+
+          const mode = await renderWithFallback(output, test.mdc, test.gardiner);
+          const svgCount = output.querySelectorAll("svg").length;
+          const imageCount = output.querySelectorAll("svg image").length;
+          if (svgCount < 1 || imageCount < 1) {
+            throw new Error(test.label + " produced no SVG glyphs");
+          }
+          const shadeCount = output.querySelectorAll("rect[data-jsesh-shade]").length;
+          if (test.expectShade && shadeCount < 5) {
+            throw new Error(test.label + " did not produce expected gray shade rectangles");
+          }
+          note.textContent = "OK via " + mode + ": " + svgCount + " svg, " + imageCount + " images";
+        }
+        const totalSvg = document.querySelectorAll("#cases svg").length;
+        const totalImages = document.querySelectorAll("#cases svg image").length;
+        status.textContent = "OK: " + tests.length + " cases rendered, " + totalSvg + " SVG blocks, " + totalImages + " image nodes.";
+        status.dataset.ok = "true";
+      } catch (err) {
+        console.error(err);
+        status.textContent = "FAILED: " + err.message;
+        status.dataset.ok = "false";
+      }
+    })();
+  </script>
+</body>
+</html>

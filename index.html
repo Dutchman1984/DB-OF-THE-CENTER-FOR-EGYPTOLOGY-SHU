@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上海大学埃及学研究中心数据库 | CENTER FOR EGYPTOLOGY, SHANGHAI UNIVERSITY</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="images/glyphs/sizes.js"></script>
+  <script src="jsesh.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background-color: #FAF6F0; background-image: url('bg-hieroglyphs.png'); background-repeat: repeat; background-size: 900px auto; position: relative; }
+    #root { position: relative; z-index: 1; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D4C5B0; border-radius: 3px; }
+    @keyframes corpusSpin { to { transform: rotate(360deg); } }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card-anim { animation: fadeInUp 0.3s ease both; }
+    .hover-card { transition: all 0.2s ease; }
+    .hover-card:hover {
+      border-color: #C4956A !important;
+      box-shadow: 0 4px 20px rgba(44,24,16,0.07);
+      transform: translateY(-1px);
+    }
+    .search-input:focus { border-color: #C4956A; box-shadow: 0 0 0 3px rgba(196,149,106,0.12); }
+    .match-hl { background: #C4956A22; padding: 1px 3px; border-radius: 2px; color: #8B4513; }
+    .hiero-render-area {
+      background: #FFFDF8; border: 1px solid #E8DCC8; border-radius: 8px;
+      padding: 16px 20px; min-height: 50px; overflow-x: auto;
+    }
+    .hiero-render-area svg { display: inline-block; vertical-align: middle; margin: 2px 0; }
+    .hiero-error {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: #B71C1C; background: #FFF3F3; padding: 8px 12px;
+      border-radius: 4px; border: 1px solid #FFCDD2;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useRef, useCallback } = React;
+
+    // ═══════════════════════════════════════════════════════════
+    // ██  在此填入你的 Supabase 配置（anon key，不是 service_role）
+    // ═══════════════════════════════════════════════════════════
+    const SUPABASE_URL  = "https://laisqeitaoxlkqratirf.supabase.co";
+    const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaXNxZWl0YW94bGtxcmF0aXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjYxMTcsImV4cCI6MjA5MjU0MjExN30.Eoz9MGwtdkDY2IYh1bv3Dk4UYZk-kCXBWXPtzfA4XzQ";
+    // ═══════════════════════════════════════════════════════════
+
+    // ── 轻量 Supabase 客户端（不引入完整 SDK，减少加载体积）──
+    const sb = {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+      },
+      async rpc(fnName, params) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fnName}`, {
+          method: "POST", headers: this.headers, body: JSON.stringify(params)
+        });
+        if (!res.ok) throw new Error(`RPC ${fnName} failed: ${res.status}`);
+        return res.json();
+      },
+      async from(table, { select = "*", filters = {}, order, limit, range } = {}) {
+        let url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}`;
+        for (const [col, val] of Object.entries(filters)) {
+          url += `&${col}=eq.${encodeURIComponent(val)}`;
+        }
+        if (order) url += `&order=${order}`;
+        if (limit) url += `&limit=${limit}`;
+        const headers = { ...this.headers };
+        if (range) headers.Range = `${range[0]}-${range[1]}`;
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`Query ${table} failed: ${res.status}`);
+        return res.json();
+      }
+    };
+
+    async function fetchAllRows(table, options = {}) {
+      const pageSize = 1000;
+      const rows = [];
+      for (let from = 0; ; from += pageSize) {
+        const page = await sb.from(table, {
+          ...options,
+          range: [from, from + pageSize - 1]
+        });
+        rows.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return rows;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  JSesh MdC 预处理：清除 jsesh.umd.js 解析器不支持的语法
+    // ═══════════════════════════════════════════════════════
+    function expandShadingToggles(mdc) {
+      let shading = false;
+      return mdc.split(/(#b\b|#e\b)/g).map(part => {
+        if (part === "#b") { shading = true; return " "; }
+        if (part === "#e") { shading = false; return " "; }
+        if (!shading) return part;
+        return part.replace(/([^\s-]+)(?=\s|-|$)/g, token => {
+          if (!token || /^#/.test(token) || /#[1-4]+$/.test(token)) return token;
+          return `${token}#1234`;
+        });
+      }).join("");
+    }
+
+    function normalizeShadeSymbols(mdc) {
+      return mdc
+        .replace(/(^|[\s\-:*()])v\//g, "$1//")
+        .replace(/(^|[\s\-:*()])h\//g, "$1//")
+        .replace(/(^|[\s\-:*()])\/(?!\/)/g, "$1//");
+    }
+
+    function normalizeShadeCodes(mdc) {
+      return mdc.replace(/#([1-4]+)/g, (_, digits) => {
+        const normalized = Array.from(new Set(digits.split("").sort())).join("");
+        return normalized ? `#${normalized}` : "";
+      });
+    }
+
+    function normalizeGlyphVariants(mdc) {
+      return mdc.replace(/[A-Za-z][A-Za-z0-9@]*/g, token => {
+        if (/^LACUNA$/i.test(token)) return "//";
+        if (!window.signsSizes || window.signsSizes[token]) return token;
+        let base = token;
+        while (base.length > 1 && !window.signsSizes[base] && /[A-Z]$/.test(base)) {
+          base = base.slice(0, -1);
+        }
+        return window.signsSizes[base] ? base : token;
+      }).replace(/(?<!#)\b[1-9]\b/g, digit => {
+        const code = `Z${digit}`;
+        return window.signsSizes && window.signsSizes[code] ? code : digit;
+      });
+    }
+
+    function preprocessMdC(mdc) {
+      if (!mdc) return "";
+      let s = mdc;
+      s = s.replace(/\|[^\s-]+(?:\s*-\s*)?/g, '');       // 移除行号/上标 |04 -、|x+3 -
+      s = s.replace(/\{\{[^}]*\}\}/g, '');               // 移除 {{x,y,scale}}
+      s = s.replace(/_?\*\*/g, '*');                     // ** → *
+      s = s.replace(/\\[A-Za-z]+[0-9]*/g, '');           // 移除 \R270 等桌面版 JSesh 指令
+      s = s.replace(/\\[0-9]+/g, '');                    // 移除 \97 等旋转指令
+      s = expandShadingToggles(s);                       // #b/#e → 区间内象限阴影
+      s = s.replace(/-?#b\b/g, '');                       // 清理残留阴影开关
+      s = s.replace(/-?#e\b/g, '');
+      s = normalizeShadeSymbols(s);                       // v/ h/ / → 可渲染阴影块
+      s = normalizeShadeCodes(s);                         // #43 → #34，保证解析器可读
+      s = s.replace(/\$[rb]?/g, '');                       // 移除颜色/黑红开关
+      s = s.replace(/\?+/g, '//');                         // 缺损开关近似为阴影块
+      s = normalizeGlyphVariants(s);                       // N33AV → N33A/N33，LACUNA → //
+      // 王名框：< → <-  > → ->  但不干扰已有的 <- ->
+      s = s.replace(/<(?!-)/g, '<-');
+      s = s.replace(/(?<!-)>/g, '->');
+      // ★ 核心修复：数据库用空格分隔符号组，JSesh 要求用 - 连字符
+      s = s.replace(/\s+/g, '-');
+      // 清理：多个连字符合并
+      s = s.replace(/-{2,}/g, '-');
+      // 清理：王名框内部不要多余连字符
+      s = s.replace(/<-+-/g, '<-');
+      s = s.replace(/-+->/g, '->');
+      // 清理：首尾连字符
+      s = s.replace(/^-+|-+$/g, '');
+      return s;
+    }
+
+    function walkSvgTree(node, visit) {
+      if (!node) return;
+      visit(node);
+      const children = node.children || node.childNodes || [];
+      for (let i = 0; i < children.length; i++) walkSvgTree(children[i], visit);
+    }
+
+    function tagNameOf(node) {
+      return String(node.tagName || node.nodeName || '').toLowerCase();
+    }
+
+    function getSvgAttr(node, name) {
+      return node.getAttribute ? node.getAttribute(name) : node.attributes?.[name];
+    }
+
+    function setSvgAttr(node, name, value) {
+      if (node.setAttribute) node.setAttribute(name, value);
+      else if (node.attributes) node.attributes[name] = value;
+    }
+
+    function applyHieroglyphicSvgEnhancements(root) {
+      const svgs = [];
+      walkSvgTree(root, node => {
+        if (tagNameOf(node) === "svg") svgs.push(node);
+      });
+      svgs.forEach(svg => {
+        const shadeRects = [];
+        walkSvgTree(svg, node => {
+          if (tagNameOf(node) !== "rect") return;
+          const style = getSvgAttr(node, "style") || "";
+          const fill = getSvgAttr(node, "fill") || "";
+          const isShade = /fill\s*:\s*rgb\(100,\s*100,\s*100\)/i.test(style)
+            || /rgb\(100,\s*100,\s*100\)/i.test(fill)
+            || getSvgAttr(node, "data-jsesh-shade");
+          if (isShade) shadeRects.push(node);
+        });
+        shadeRects.forEach(node => {
+          const parent = node.parentNode;
+          if (parent && parent.firstChild !== node) parent.insertBefore(node, parent.firstChild);
+          setSvgAttr(node, "fill", "#CFC8BF");
+          setSvgAttr(node, "style", "fill:#CFC8BF;opacity:0.55;stroke:none");
+          setSvgAttr(node, "data-jsesh-shade", "true");
+        });
+      });
+    }
+
+    function gardinerToMdC(searchGardiner) {
+      const normalizeToken = (token) => {
+        let code = token.replace(/[^A-Za-z0-9_]/g, "");
+        if (/^LACUNA$/i.test(code)) return "//";
+        if (/^[1-9]$/.test(code) && window.signsSizes?.[`Z${code}`]) return `Z${code}`;
+        if (!code || !window.signsSizes || window.signsSizes[code]) return code;
+        let base = code;
+        while (base.length > 1 && !window.signsSizes[base] && /[A-Z]$/.test(base)) {
+          base = base.slice(0, -1);
+        }
+        return window.signsSizes[base] ? base : code;
+      };
+      return (searchGardiner || "")
+        .split(/\s+/)
+        .map(g => g.trim())
+        .filter(g => g && g !== "\\t")
+        .map(normalizeToken)
+        .filter(Boolean)
+        .map(g => g.includes("_") ? g.split("_").filter(Boolean).join("&") : g)
+        .join("-");
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  JSesh SVG 渲染组件
+    // ═══════════════════════════════════════════════════════
+    const jseshLib = window["jsesh-library"];
+
+    function HieroglyphView({ mdc, gardiner }) {
+      const containerRef = useRef(null);
+      const [status, setStatus] = useState("idle");
+
+      useEffect(() => {
+        if (!containerRef.current || (!mdc && !gardiner) || !jseshLib) return;
+        const el = containerRef.current;
+        let cancelled = false;
+        while (el.firstChild) el.removeChild(el.firstChild);
+        setStatus("rendering");
+
+        const cleaned = preprocessMdC(mdc);
+        const fallback = gardinerToMdC(gardiner);
+        if (!cleaned && !fallback) { setStatus("done"); return; }
+
+        const render = async (code) => {
+          el.textContent = code;
+          await Promise.resolve(jseshLib.replaceTextWithHieroglyphs(el, { scale: 1.2 }));
+          applyHieroglyphicSvgEnhancements(el);
+        };
+
+        (async () => {
+          try {
+            await render(cleaned || fallback);
+            if (!cancelled) setStatus("done");
+          } catch (err) {
+            if (fallback && fallback !== cleaned) {
+              try {
+                await render(fallback);
+                if (!cancelled) setStatus("fallback");
+                return;
+              } catch (fallbackErr) {
+                err = fallbackErr;
+              }
+            }
+            if (cancelled) return;
+            console.warn("JSesh render error:", err, "\nMdC:", cleaned.substring(0, 200));
+            el.textContent = "";
+            const fb = document.createElement("div");
+            fb.className = "hiero-error";
+            fb.textContent = "渲染异常 · 预处理编码: " + (cleaned || fallback).substring(0, 300);
+            el.appendChild(fb);
+            setStatus("error");
+          }
+        })();
+
+        return () => { cancelled = true; };
+      }, [mdc, gardiner]);
+
+      if (!jseshLib) {
+        return <div className="hiero-error">JSesh 渲染引擎未加载 — 请确保 jsesh.umd.js 和 images/glyphs/ 目录已部署</div>;
+      }
+
+      return (
+        <div>
+          {status === "rendering" && (
+            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0",
+              fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:"#8B7355" }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"#C4956A",
+                animation:"corpusSpin 0.8s linear infinite" }} />
+              渲染圣书体中...
+            </div>
+          )}
+          {status === "fallback" && (
+            <div style={{ marginBottom:8, fontFamily:"'JetBrains Mono',monospace",
+              fontSize:11, color:"#8B7355" }}>
+              已使用 Gardiner 符号序列降级渲染
+            </div>
+          )}
+          <div ref={containerRef} className="hiero-render-area" />
+        </div>
+      );
+    }
+
+    // ── 样式常量 ──
+    const S = {
+      tag: (c) => ({ display:"inline-block", padding:"4px 10px", borderRadius:4, fontSize:11,
+        fontFamily:"'JetBrains Mono',monospace", letterSpacing:"0.04em",
+        background:`${c}15`, color:c, border:`1px solid ${c}30` }),
+      matchTag: (field) => {
+        const map = {
+          transliteration_fts: ["转写(精确)", "#2E7D32"],
+          transliteration: ["转写", "#558B2F"],
+          translation_zh: ["中文", "#C62828"],
+          search_gardiner: ["Gardiner", "#6A1B9A"],
+        };
+        const [label, color] = map[field] || [field, "#8B7355"];
+        return { display:"inline-block", padding:"3px 8px", borderRadius:4, fontSize:10,
+          fontFamily:"'JetBrains Mono',monospace", letterSpacing:"0.04em",
+          background:`${color}12`, color, border:`1px solid ${color}30`, fontWeight:600 };
+      },
+      section: { fontSize:11, fontFamily:"'JetBrains Mono',monospace", letterSpacing:"0.1em",
+        textTransform:"uppercase", color:"#8B7355", marginBottom:6, marginTop:24,
+        borderBottom:"1px solid #E8DCC8", paddingBottom:6 },
+      input: { width:"100%", boxSizing:"border-box", padding:"14px 18px",
+        border:"1px solid #D4C5B0", borderRadius:8, fontSize:15,
+        fontFamily:"'Cormorant Garamond',serif", background:"#FFFCF7", color:"#2C1810",
+        outline:"none", transition:"border-color 0.2s, box-shadow 0.2s" },
+      btn: (active) => ({ padding:"8px 18px",
+        border:`1px solid ${active?"#C4956A":"#D4C5B0"}`, borderRadius:"20px",
+        background:active?"#C4956A":"transparent", color:active?"#FFF":"#8B7355",
+        fontSize:12, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer",
+        transition:"all 0.2s", whiteSpace:"nowrap" }),
+    };
+
+    // ── 组件 ──
+    function Spinner({ label = "Querying corpus index..." }) {
+      return (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px" }}>
+          <div style={{ width:28, height:28, border:"3px solid #E8DCC8", borderTopColor:"#C4956A",
+            borderRadius:"50%", animation:"corpusSpin 0.7s linear infinite" }} />
+          <div style={{ marginTop:14, fontFamily:"'JetBrains Mono',monospace", fontSize:12,
+            color:"#8B7355", letterSpacing:"0.08em" }}>{label}</div>
+        </div>
+      );
+    }
+
+    function EmptyState({ title, msg }) {
+      return (
+        <div style={{ textAlign:"center", padding:"80px 20px", color:"#8B7355",
+          background:"#FFFCF7", border:"1px dashed #D4C5B0", borderRadius:8 }}>
+          <div style={{ fontSize:20, fontFamily:"'Cormorant Garamond',serif", marginBottom:12 }}>
+            {title || "无活动分析对象"}
+          </div>
+          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13,
+            letterSpacing:"0.05em", whiteSpace:"pre-line" }}>{msg}</div>
+        </div>
+      );
+    }
+
+    function GardinerSection({ row, defaultOpen = false }) {
+      const tokens = (row.search_gardiner || "").split(/\s+/).filter(Boolean);
+      return (
+        <details open={defaultOpen} style={{ marginBottom:16 }}>
+          <summary style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+            letterSpacing:"0.1em", textTransform:"uppercase", color:"#8B7355",
+            cursor:"pointer", marginBottom:6, borderBottom:"1px solid #E8DCC8",
+            paddingBottom:6 }}>Gardiner 符号序列 ▸</summary>
+          <div style={{ background:"#F5F0E8", padding:"12px 16px",
+            borderRadius:6, lineHeight:1.7, border:"1px solid #E8DCC8",
+            maxHeight:260, overflowY:"auto" }}>
+            {tokens.length ? (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                {tokens.map((g, i) =>
+                  <span key={`${g}-${i}`} style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10,
+                    color:"#6A1B9A", background:"#F3E5F5", padding:"2px 6px",
+                    borderRadius:3 }}>{g}</span>
+                )}
+              </div>
+            ) : (
+              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
+                color:"#A09080" }}>—</span>
+            )}
+          </div>
+        </details>
+      );
+    }
+
+    function MdCSection({ row, defaultOpen = false }) {
+      return (
+        <details open={defaultOpen} style={{ marginBottom:16 }}>
+          <summary style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+            letterSpacing:"0.1em", textTransform:"uppercase", color:"#8B7355",
+            cursor:"pointer", marginBottom:6, borderBottom:"1px solid #E8DCC8",
+            paddingBottom:6 }}>JSesh MdC 原始编码 ▸</summary>
+          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
+            color:"#3D261A", background:"#F5F0E8", padding:"12px 16px",
+            borderRadius:6, lineHeight:1.7, wordBreak:"break-all",
+            maxHeight:260, overflowY:"auto", border:"1px solid #E8DCC8" }}>
+            {row.jsesh_mdc || "—"}
+          </div>
+        </details>
+      );
+    }
+
+    function AlignmentFullContent({ row, defaultOpenCodes = false }) {
+      return (
+        <div>
+          <div style={S.section}>圣书体 (Hieroglyphic Text · SVG Rendering)</div>
+          <HieroglyphView mdc={row.jsesh_mdc} gardiner={row.search_gardiner} />
+
+          <GardinerSection row={row} defaultOpen={defaultOpenCodes} />
+          <MdCSection row={row} defaultOpen={defaultOpenCodes} />
+
+          {row.notes && (
+            <>
+              <div style={S.section}>注释</div>
+              <div style={{ fontSize:14, color:"#5D4037", lineHeight:1.7 }}>
+                {row.notes}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    function AlignmentDetail({ row, onBack }) {
+      return (
+        <div>
+          <button onClick={onBack} style={{ background:"none", border:"none",
+            color:"#C4956A", fontSize:13, fontFamily:"'JetBrains Mono',monospace",
+            cursor:"pointer", padding:0, marginBottom:20, textDecoration:"underline" }}>
+            ← 返回列表
+          </button>
+          <div style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
+            borderRadius:8, padding:"22px 26px", marginBottom:20 }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", marginBottom:12 }}>
+              {row.chapter && <span style={S.tag("#C4956A")}>{row.chapter}</span>}
+              {row.section && <span style={S.tag("#7B9E87")}>{row.section}</span>}
+              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
+                color:"#8B7355", letterSpacing:"0.06em" }}>
+                {row.source_file} · 物理行 {row.physical_line} · 逻辑行 {row.logical_line}
+              </span>
+            </div>
+            <div style={{ fontSize:18, lineHeight:1.85, color:"#2C1810", marginBottom:10 }}>
+              {row.translation_zh}
+            </div>
+            <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#5D4037",
+              lineHeight:1.7, fontStyle:"italic" }}>
+              {row.transliteration}
+            </div>
+          </div>
+          <AlignmentFullContent row={row} defaultOpenCodes={true} />
+        </div>
+      );
+    }
+
+    // ── 单条对齐结果卡片 ──
+    function AlignmentCard({ row, idx, showChapter, query, onOpenDetail }) {
+      const [expanded, setExpanded] = useState(false);
+      return (
+        <div className="card-anim hover-card" style={{
+          background:"#FFFCF7", border:"1px solid #E8DCC8", borderRadius:8,
+          padding:"18px 22px", marginBottom:12, cursor:"pointer",
+          borderLeft: row.match_field ? "3px solid #C4956A" : "3px solid #C4956A30",
+          animationDelay: `${idx * 0.04}s`
+        }} onClick={() => setExpanded(!expanded)}>
+
+          {/* 头部：出处信息 */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
+            marginBottom:10 }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              {showChapter && (
+                <span style={S.tag("#C4956A")}>{row.chapter}</span>
+              )}
+              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
+                color:"#8B7355", letterSpacing:"0.06em" }}>
+                {row.source_file} · 物理行 {row.physical_line} · 逻辑行 {row.logical_line}
+              </span>
+              {row.section && (
+                <span style={S.tag("#7B9E87")}>{row.section}</span>
+              )}
+            </div>
+            {row.match_field && (
+              <span style={S.matchTag(row.match_field)}>
+                {({transliteration_fts:"转写(精确)", transliteration:"转写",
+                   translation_zh:"中文", search_gardiner:"Gardiner"})[row.match_field]}
+              </span>
+            )}
+          </div>
+
+          {/* 中文翻译（始终显示） */}
+          <div style={{ fontSize:16, lineHeight:1.8, color:"#2C1810", marginBottom:8 }}>
+            {row.translation_zh}
+          </div>
+
+          {/* 拉丁转写（始终显示） */}
+          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#5D4037",
+            lineHeight:1.7, fontStyle:"italic" }}>
+            {row.transliteration}
+          </div>
+
+          {/* 展开区域：圣书体 + Gardiner + MdC */}
+          {expanded && (
+            <div style={{ marginTop:14, borderTop:"1px solid #E8DCC8", paddingTop:16 }}
+              onClick={e => e.stopPropagation()}>
+              <AlignmentFullContent row={row} defaultOpenCodes={false} />
+            </div>
+          )}
+
+          {/* 底部操作栏 */}
+          <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", marginTop:8 }}>
+            <span onClick={(e) => { e.stopPropagation(); onOpenDetail && onOpenDetail(row); }}
+              style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10,
+                color:"#C4956A", letterSpacing:"0.08em", cursor:"pointer",
+                textDecoration:"underline" }}>
+              查看详情 →
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 主应用 ──
+    function App() {
+      const [tab, setTab] = useState("search");
+      const formatCount = value => Number.isFinite(value) ? value.toLocaleString("zh-CN") : "—";
+
+      // ── 文献浏览状态 ──
+      const [chapters, setChapters] = useState([]);
+      const [chaptersLoading, setChaptersLoading] = useState(true);
+      const [selChapter, setSelChapter] = useState(null);
+      const [chapterLines, setChapterLines] = useState([]);
+      const [chapterLinesLoading, setChapterLinesLoading] = useState(false);
+
+      // ── 搜索状态 ──
+      const [q, setQ] = useState("");
+      const [searchResults, setSearchResults] = useState(null);
+      const [searchLoading, setSearchLoading] = useState(false);
+      const [resultCount, setResultCount] = useState(0);
+      const searchTimer = useRef(null);
+      const [selectedAlignment, setSelectedAlignment] = useState(null);
+
+      // ── 统计 ──
+      const [corpusStats, setCorpusStats] = useState({
+        documentCount: 0,
+        lineCount: 0,
+        sectionCount: 0,
+        sourceFileCount: 0
+      });
+
+      // ── 初始化：加载章节列表 ──
+      useEffect(() => {
+        (async () => {
+          try {
+            // 获取所有行并在前端聚合章节信息
+            const data = await fetchAllRows("alignments", {
+              select: "chapter,section,source_file",
+            });
+            // 聚合成章节列表
+            const chapMap = {};
+            const sourceFiles = new Set();
+            const sectionKeys = new Set();
+            data.forEach(row => {
+              const chapter = row.chapter || "未命名文献";
+              const section = row.section || "未分类";
+              const sourceFile = row.source_file || "未标注文献源";
+              if (!chapMap[chapter]) {
+                chapMap[chapter] = { chapter, sections: new Set(), sources: new Set(), count: 0 };
+              }
+              chapMap[chapter].sections.add(section);
+              chapMap[chapter].sources.add(sourceFile);
+              chapMap[chapter].count++;
+              sourceFiles.add(sourceFile);
+              sectionKeys.add(`${chapter}|||${section}`);
+            });
+            const chapList = Object.values(chapMap).map(c => ({
+              ...c, sections: [...c.sections], sources: [...c.sources].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+            })).sort((a, b) => {
+              const minA = a.sources[0] || "";
+              const minB = b.sources[0] || "";
+              return minA.localeCompare(minB, undefined, { numeric: true });
+            });
+            setChapters(chapList);
+            setCorpusStats({
+              documentCount: chapList.length,
+              lineCount: data.length,
+              sectionCount: sectionKeys.size,
+              sourceFileCount: sourceFiles.size
+            });
+            setChaptersLoading(false);
+          } catch (e) {
+            console.error("Failed to load chapters:", e);
+            setChaptersLoading(false);
+          }
+        })();
+      }, []);
+
+      // ── 搜索（防抖 500ms）──
+      useEffect(() => {
+        if (!q.trim()) { setSearchResults(null); setSearchLoading(false); return; }
+        setSearchLoading(true);
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(async () => {
+          try {
+            const data = await sb.rpc("search_corpus", { query_text: q.trim() });
+            setSearchResults(data);
+            setResultCount(data.length);
+          } catch (e) {
+            console.error("Search failed:", e);
+            setSearchResults([]);
+          }
+          setSearchLoading(false);
+        }, 500);
+        return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+      }, [q]);
+
+      // ── 点击章节加载全部行 ──
+      const openChapter = useCallback(async (chap) => {
+        setSelChapter(chap);
+        setSelectedAlignment(null);
+        setChapterLines([]);
+        setChapterLinesLoading(true);
+        try {
+          const data = await fetchAllRows("alignments", {
+            filters: { chapter: chap.chapter },
+            order: "source_file.asc,physical_line.asc"
+          });
+          setChapterLines(data);
+        } catch (e) {
+          console.error("Failed to load chapter lines:", e);
+        }
+        setChapterLinesLoading(false);
+      }, []);
+
+      const openAlignmentDetail = useCallback((row) => {
+        setSelectedAlignment(row);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, []);
+
+      const closeAlignmentDetail = useCallback(() => {
+        setSelectedAlignment(null);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, []);
+
+      // ── ESC 返回 ──
+      useEffect(() => {
+        const fn = e => {
+          if (e.key === "Escape") {
+            if (selectedAlignment) setSelectedAlignment(null);
+            else setSelChapter(null);
+          }
+        };
+        window.addEventListener("keydown", fn);
+        return () => window.removeEventListener("keydown", fn);
+      }, [selectedAlignment]);
+
+      // 按 section 分组
+      const linesBySection = useMemo(() => {
+        const groups = {};
+        chapterLines.forEach(line => {
+          const sec = line.section || "未分类";
+          if (!groups[sec]) groups[sec] = [];
+          groups[sec].push(line);
+        });
+        return groups;
+      }, [chapterLines]);
+
+      // 搜索结果中的唯一 Gardiner 符号统计
+      const gardinerStats = useMemo(() => {
+        if (!searchResults || searchResults.length === 0) return [];
+        const counts = {};
+        searchResults.forEach(r => {
+          (r.search_gardiner || "").split(/\s+/).filter(Boolean).forEach(g => {
+            if (g === "\\t") return;
+            counts[g] = (counts[g] || 0) + 1;
+          });
+        });
+        return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 20);
+      }, [searchResults]);
+
+      return (
+        <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", minHeight:"100vh", color:"#2C1810" }}>
+
+          {/* ══════ HEADER ══════ */}
+          <div style={{ background:"linear-gradient(135deg,#2C1810 0%,#3D261A 50%,#1A0F0A 100%)",
+            color:"#E8DCC8", padding:"28px 24px 24px", position:"relative", overflow:"hidden" }}>
+            <div style={{ position:"relative", display:"flex", justifyContent:"space-between",
+              alignItems:"center", maxWidth:1000, margin:"0 auto" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+                <img src="logo.png" alt="Logo" style={{ width:80, height:80 }} />
+                <div>
+                  <div style={{ fontSize:26, fontWeight:700, letterSpacing:"0.04em" }}>
+                    上海大学埃及学研究中心数据库
+                  </div>
+                  <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace", color:"#C4956A",
+                    letterSpacing:"0.15em", marginTop:4 }}>
+                    DATABASE OF THE CENTER FOR EGYPTOLOGY, SHANGHAI UNIVERSITY
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#8B7355",
+                letterSpacing:"0.05em", textAlign:"right" }}>
+                <div>{formatCount(corpusStats.documentCount)} 篇文献 · {formatCount(corpusStats.lineCount)} 行</div>
+                <div style={{ color:"#C4956A", marginTop:4, fontSize:11 }}>
+                  {formatCount(corpusStats.sectionCount)} 个小节 · {formatCount(corpusStats.sourceFileCount)} 个来源文件
+                </div>
+                <div style={{ color:"#C4956A", marginTop:4, fontSize:11 }}>SUPABASE LIVE</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ══════ NAV ══════ */}
+          <nav style={{ background:"#2C1810", position:"sticky", top:0, zIndex:100,
+            borderBottom:"2px solid #C4956A30" }}>
+            <div style={{ maxWidth:1000, margin:"0 auto", display:"flex" }}>
+              {[
+                ["search", "全文检索"],
+                ["archive", "文献浏览"],
+                ["parallel", "平行文本"],
+                ["restore", "文本修复"]
+              ].map(([k, l]) =>
+                <button key={k} onClick={() => { setTab(k); setSelectedAlignment(null); }} style={{
+                  padding:"16px 24px", background:"transparent", border:"none",
+                  borderBottom: tab === k ? "2px solid #C4956A" : "2px solid transparent",
+                  color: tab === k ? "#E8DCC8" : "#8B7355", fontSize:13,
+                  fontFamily:"'JetBrains Mono',monospace", letterSpacing:"0.05em",
+                  cursor:"pointer", whiteSpace:"nowrap"
+                }}>{l}</button>
+              )}
+            </div>
+          </nav>
+
+          <div style={{ maxWidth:1000, margin:"0 auto", padding:"30px 16px" }}>
+
+            {selectedAlignment && (
+              <AlignmentDetail row={selectedAlignment} onBack={closeAlignmentDetail} />
+            )}
+
+            {/* ═══════════════════ 全文检索 TAB ═══════════════════ */}
+            {!selectedAlignment && tab === "search" && (
+              <>
+                {/* 搜索框 */}
+                <div style={{ marginBottom:28 }}>
+                  <div style={{ fontSize:13, fontFamily:"'JetBrains Mono',monospace",
+                    color:"#8B7355", marginBottom:10, letterSpacing:"0.06em" }}>
+                    支持拉丁转写 · 中文翻译 · Gardiner 编码三维检索 · 展开卡片可查看 SVG 圣书体渲染
+                  </div>
+                  <input
+                    className="search-input"
+                    value={q}
+                    onChange={e => setQ(e.target.value)}
+                    placeholder="输入检索词：如 Imn、赫拉姆海布、G5 S3、anx、敕令、mAat ……"
+                    style={S.input}
+                  />
+                  {q.trim() && !searchLoading && searchResults && (
+                    <div style={{ marginTop:10, fontFamily:"'JetBrains Mono',monospace",
+                      fontSize:12, color:"#C4956A", letterSpacing:"0.05em" }}>
+                      找到 {resultCount} 条匹配结果
+                    </div>
+                  )}
+                </div>
+
+                {/* 搜索结果 */}
+                {!q.trim() ? (
+                  <EmptyState
+                    title="全文语料检索 (Full-Text Corpus Search)"
+                    msg="输入任意拉丁转写、中文词句或 Gardiner 编码，即可在全部语料中定位匹配段落"
+                  />
+                ) : searchLoading ? (
+                  <Spinner label="Searching corpus..." />
+                ) : searchResults && searchResults.length === 0 ? (
+                  <EmptyState title="未找到匹配结果" msg={`语料中未检索到「${q}」`} />
+                ) : searchResults ? (
+                  <>
+                    {/* Gardiner 符号频率（仅在 Gardiner 搜索时有意义） */}
+                    {gardinerStats.length > 0 && searchResults.some(r => r.match_field === "search_gardiner") && (
+                      <div style={{ marginBottom:20, padding:"14px 18px", background:"#F5F0E8",
+                        borderRadius:8, border:"1px solid #E8DCC8" }}>
+                        <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                          color:"#8B7355", marginBottom:8, letterSpacing:"0.1em" }}>
+                          结果中高频 GARDINER 符号
+                        </div>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                          {gardinerStats.map(([g, c]) =>
+                            <span key={g} style={{ fontFamily:"'JetBrains Mono',monospace",
+                              fontSize:10, color:"#6A1B9A", background:"#F3E5F5",
+                              padding:"3px 8px", borderRadius:4,
+                              border:"1px solid #CE93D830" }}>
+                              {g} ×{c}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {searchResults.map((row, idx) =>
+                      <AlignmentCard key={row.id} row={row} idx={idx} showChapter={true}
+                        query={q} onOpenDetail={openAlignmentDetail} />
+                    )}
+                  </>
+                ) : null}
+              </>
+            )}
+
+            {/* ═══════════════════ 文献浏览 TAB ═══════════════════ */}
+            {!selectedAlignment && tab === "archive" && (
+              <>
+                {selChapter ? (
+                  // ── 章节详情 ──
+                  <div>
+                    <button onClick={() => setSelChapter(null)} style={{ background:"none",
+                      border:"none", color:"#C4956A", fontSize:13,
+                      fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", padding:0,
+                      marginBottom:20, textDecoration:"underline" }}>
+                      ← 返回文献列表
+                    </button>
+
+                    <div style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
+                      borderRadius:8, padding:"24px 30px", marginBottom:24 }}>
+                      <h2 style={{ fontSize:30, fontWeight:600, margin:"0 0 14px", color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>
+                        {selChapter.chapter}
+                      </h2>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+                        {selChapter.sources.map(s =>
+                          <span key={s} style={S.tag("#C4956A")}>{s}</span>
+                        )}
+                      </div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                        <div>
+                          <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                            color:"#8B7355", marginBottom:4 }}>文本行数</div>
+                          <div style={{ fontSize:15, fontWeight:500 }}>{selChapter.count} 行</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                            color:"#8B7355", marginBottom:4 }}>包含小节</div>
+                          <div style={{ fontSize:15, fontWeight:500 }}>
+                            {selChapter.sections.join("、")}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 按 section 分组显示行 */}
+                    {chapterLinesLoading ? <Spinner label="Loading text lines..." /> : (
+                      Object.entries(linesBySection).map(([sec, lines]) => (
+                        <div key={sec}>
+                          <div style={S.section}>{sec} ({lines.length} 行)</div>
+                          {lines.map((line, idx) =>
+                            <AlignmentCard key={line.id} row={line} idx={idx}
+                              showChapter={false} query="" onOpenDetail={openAlignmentDetail} />
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  // ── 章节列表 ──
+                  <>
+                    {/* 统计 */}
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12,
+                      marginBottom:30 }}>
+                      {[
+                        [corpusStats.documentCount, "文献篇数"],
+                        [corpusStats.lineCount, "文本总行数"],
+                        [corpusStats.sectionCount, "小节数量"],
+                        [corpusStats.sourceFileCount, "来源文件数"]
+                      ].map(([v, l], i) =>
+                        <div key={i} style={{ background:"#2C1810", borderRadius:8,
+                          padding:"20px", textAlign:"center" }}>
+                          <div style={{ fontSize:28, fontWeight:700, color:"#C4956A" }}>
+                            {formatCount(v)}
+                          </div>
+                          <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                            color:"#8B7355", marginTop:6, letterSpacing:"0.1em" }}>{l}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={S.section}>文献目录 (DOCUMENT INDEX)</div>
+
+                    {chaptersLoading ? <Spinner label="Loading documents..." /> : (
+                      chapters.map((chap, idx) => (
+                        <div key={chap.chapter} className="card-anim hover-card"
+                          style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
+                            borderRadius:8, padding:"20px 24px", marginBottom:14,
+                            cursor:"pointer", animationDelay:`${idx * 0.06}s` }}
+                          onClick={() => openChapter(chap)}>
+                          <div style={{ display:"flex", justifyContent:"space-between",
+                            alignItems:"flex-start" }}>
+                            <div>
+                              <h3 style={{ fontSize:22, fontWeight:600, margin:"0 0 10px",
+                                color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>{chap.chapter}</h3>
+                              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                                {chap.sources.map(s =>
+                                  <span key={s} style={S.tag("#C4956A")}>{s}</span>
+                                )}
+                                {chap.sections.map(s =>
+                                  <span key={s} style={S.tag("#7B9E87")}>{s}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ textAlign:"right", flexShrink:0 }}>
+                              <div style={{ fontSize:24, fontWeight:700, color:"#C4956A" }}>
+                                {chap.count}
+                              </div>
+                              <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10,
+                                color:"#A09080", letterSpacing:"0.1em" }}>LINES</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ═══ 占位 TAB ═══ */}
+            {!selectedAlignment && tab === "parallel" && (
+              <EmptyState title="平行文本 (Parallel Text Retrieval)"
+                msg={"功能开发中 · 将采用 Tesserae 式 n-gram 匹配与罕见度加权\n结合 FastText / Word2Vec 转写向量、pgvector 余弦相似度检索"} />
+            )}
+
+            {!selectedAlignment && tab === "restore" && (
+              <EmptyState title="文本修复 (Masked Language Restoration)"
+                msg="功能开发中 · 需要字符级 Masked LM 模型支持" />
+            )}
+          </div>
+
+          {/* ══════ FOOTER ══════ */}
+          <div style={{ textAlign:"center", padding:"30px", borderTop:"1px solid #E8DCC8",
+            fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"#A09080",
+            letterSpacing:"0.15em" }}>
+            上海大学埃及学研究中心数据库 · DATABASE OF THE CENTER FOR EGYPTOLOGY, SHANGHAI UNIVERSITY · SUPABASE LIVE
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
