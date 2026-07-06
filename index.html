@@ -38,6 +38,9 @@
       padding: 16px 20px; min-height: 50px; overflow-x: auto;
     }
     .hiero-render-area svg { display: inline-block; vertical-align: middle; margin: 2px 0; }
+    .hiero-render-area .official-hieroglyph-svg {
+      display: block; height: clamp(48px, 6vw, 84px); width: auto; max-width: none;
+    }
     .hiero-error {
       font-family: 'JetBrains Mono', monospace; font-size: 11px;
       color: #B71C1C; background: #FFF3F3; padding: 8px 12px;
@@ -55,6 +58,8 @@
     // ═══════════════════════════════════════════════════════════
     const SUPABASE_URL  = "https://api.shu-egyptology-db.site";
     const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaXNxZWl0YW94bGtxcmF0aXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjYxMTcsImV4cCI6MjA5MjU0MjExN30.Eoz9MGwtdkDY2IYh1bv3Dk4UYZk-kCXBWXPtzfA4XzQ";
+    const HIEROGLYPH_ASSET_BASE = window.CORPUS_HIEROGLYPH_ASSET_BASE
+      || `${SUPABASE_URL}/storage/v1/object/public/hieroglyph-render`;
     // ═══════════════════════════════════════════════════════════
 
     // ── 轻量 Supabase 客户端（不引入完整 SDK，减少加载体积）──
@@ -250,11 +255,21 @@
     // ═══════════════════════════════════════════════════════
     const jseshLib = window["jsesh-library"];
 
-    function HieroglyphView({ mdc, gardiner }) {
+    function storageObjectUrl(relativePath) {
+      const encodedPath = String(relativePath || "")
+        .split("/").map(segment => encodeURIComponent(segment)).join("/");
+      return `${HIEROGLYPH_ASSET_BASE}/${encodedPath}`;
+    }
+
+    function HieroglyphView({ svgPath, mdc, gardiner }) {
       const containerRef = useRef(null);
       const [status, setStatus] = useState("idle");
+      const [officialFailed, setOfficialFailed] = useState(false);
+
+      useEffect(() => setOfficialFailed(false), [svgPath]);
 
       useEffect(() => {
+        if (svgPath && !officialFailed) return;
         if (!containerRef.current || (!mdc && !gardiner) || !jseshLib) return;
         const el = containerRef.current;
         let cancelled = false;
@@ -297,7 +312,19 @@
         })();
 
         return () => { cancelled = true; };
-      }, [mdc, gardiner]);
+      }, [svgPath, officialFailed, mdc, gardiner]);
+
+      if (svgPath && !officialFailed) {
+        return (
+          <div className="hiero-render-area">
+            <img className="official-hieroglyph-svg"
+              src={storageObjectUrl(svgPath)}
+              alt="JSesh official SVG hieroglyphic line"
+              loading="lazy" decoding="async"
+              onError={() => setOfficialFailed(true)} />
+          </div>
+        );
+      }
 
       if (!jseshLib) {
         return <div className="hiero-error">JSesh 渲染引擎未加载 — 请确保 jsesh.umd.js 和 images/glyphs/ 目录已部署</div>;
@@ -429,7 +456,8 @@
       return (
         <div>
           <div style={S.section}>圣书体 (Hieroglyphic Text · SVG Rendering)</div>
-          <HieroglyphView mdc={row.jsesh_mdc} gardiner={row.search_gardiner} />
+          <HieroglyphView svgPath={row.render_svg_path}
+            mdc={row.jsesh_mdc} gardiner={row.search_gardiner} />
 
           <GardinerSection row={row} defaultOpen={defaultOpenCodes} />
           <MdCSection row={row} defaultOpen={defaultOpenCodes} />
