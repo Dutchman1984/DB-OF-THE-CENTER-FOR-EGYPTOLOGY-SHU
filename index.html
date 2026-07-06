@@ -6,7 +6,7 @@
   <link rel="icon" href="favicon.ico" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <title>上海大学埃及学研究中心数据库 | CENTER FOR EGYPTOLOGY, SHANGHAI UNIVERSITY</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif:ital,wght@0,400;0,600;1,400&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet"/>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -33,6 +33,10 @@
     }
     .search-input:focus { border-color: #C4956A; box-shadow: 0 0 0 3px rgba(196,149,106,0.12); }
     .match-hl { background: #C4956A22; padding: 1px 3px; border-radius: 2px; color: #8B4513; }
+    .egyptological-transliteration {
+      font-family: 'Noto Serif', 'Noto Serif SC', 'Times New Roman', serif;
+      font-variant-ligatures: none;
+    }
     .hiero-render-area {
       background: #FFFDF8; border: 1px solid #E8DCC8; border-radius: 8px;
       padding: 16px 20px; min-height: 50px; overflow-x: auto;
@@ -495,7 +499,7 @@
             <div style={{ fontSize:18, lineHeight:1.85, color:"#2C1810", marginBottom:10 }}>
               {row.translation_zh}
             </div>
-            <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#5D4037",
+            <div className="egyptological-transliteration" style={{ fontSize:13, color:"#5D4037",
               lineHeight:1.7, fontStyle:"italic" }}>
               {row.transliteration}
             </div>
@@ -545,7 +549,7 @@
           </div>
 
           {/* 拉丁转写（始终显示） */}
-          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:"#5D4037",
+          <div className="egyptological-transliteration" style={{ fontSize:13, color:"#5D4037",
             lineHeight:1.7, fontStyle:"italic" }}>
             {row.transliteration}
           </div>
