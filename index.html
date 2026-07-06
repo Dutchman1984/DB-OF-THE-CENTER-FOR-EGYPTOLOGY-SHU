@@ -42,8 +42,16 @@
       padding: 16px 20px; min-height: 50px; overflow-x: auto;
     }
     .hiero-render-area svg { display: inline-block; vertical-align: middle; margin: 2px 0; }
+    .official-hieroglyph-area {
+      padding: 10px 14px;
+      min-height: 48px;
+    }
     .hiero-render-area .official-hieroglyph-svg {
-      display: block; height: clamp(48px, 6vw, 84px); width: auto; max-width: none;
+      display: block;
+      height: clamp(34px, 3.2vw, 50px);
+      width: auto;
+      max-width: none;
+      object-fit: contain;
     }
     .hiero-error {
       font-family: 'JetBrains Mono', monospace; font-size: 11px;
@@ -320,7 +328,7 @@
 
       if (svgPath && !officialFailed) {
         return (
-          <div className="hiero-render-area">
+          <div className="hiero-render-area official-hieroglyph-area">
             <img className="official-hieroglyph-svg"
               src={storageObjectUrl(svgPath)}
               alt="JSesh official SVG hieroglyphic line"
@@ -456,6 +464,74 @@
       );
     }
 
+    function NotesSection({ notes }) {
+      if (!notes) return null;
+      const isImportMetadata = notes.startsWith("CA-ECON-v1|");
+
+      if (!isImportMetadata) {
+        return (
+          <>
+            <div style={S.section}>注释</div>
+            <div style={{ fontSize:14, color:"#5D4037", lineHeight:1.7 }}>{notes}</div>
+          </>
+        );
+      }
+
+      const parts = notes.split("|");
+      const metadata = { source_line_id: parts[1] || "" };
+      parts.slice(2).forEach(part => {
+        const separator = part.indexOf("=");
+        if (separator > 0) metadata[part.slice(0, separator)] = part.slice(separator + 1);
+      });
+      const labels = {
+        source_line_id: "源行编号",
+        category: "文献类别",
+        gly: "Gly 文件",
+        relation: "对应关系",
+        lower_pdf: "转写译文 PDF 页",
+        translation_group: "译文组",
+      };
+      const relationLabels = {
+        exact_line: "逐行精确对应",
+        grouped_translation: "多行共用译文",
+        source_only: "仅源文",
+      };
+      const entries = Object.keys(labels)
+        .filter(key => metadata[key])
+        .map(key => [labels[key], key === "relation"
+          ? (relationLabels[metadata[key]] || metadata[key]) : metadata[key]]);
+
+      return (
+        <details style={{ marginTop:16 }}>
+          <summary style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+            letterSpacing:"0.08em", color:"#8B7355", cursor:"pointer",
+            borderTop:"1px solid #E8DCC8", paddingTop:10 }}>
+            数据来源与校勘信息（点击展开）
+          </summary>
+          <div style={{ marginTop:10, padding:"12px 14px", background:"#F5F0E8",
+            border:"1px solid #E8DCC8", borderRadius:6 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"max-content minmax(0,1fr)",
+              columnGap:14, rowGap:8, fontSize:11, lineHeight:1.6 }}>
+              {entries.map(([label, value]) => (
+                <React.Fragment key={label}>
+                  <span style={{ color:"#8B7355" }}>{label}</span>
+                  <span style={{ color:"#3D261A", fontFamily:"'JetBrains Mono',monospace",
+                    overflowWrap:"anywhere" }}>{value}</span>
+                </React.Fragment>
+              ))}
+            </div>
+            <details style={{ marginTop:10 }}>
+              <summary style={{ fontSize:10, color:"#A09080", cursor:"pointer" }}>
+                查看原始导入标识
+              </summary>
+              <div style={{ marginTop:6, fontFamily:"'JetBrains Mono',monospace",
+                fontSize:10, color:"#6D5A4A", overflowWrap:"anywhere" }}>{notes}</div>
+            </details>
+          </div>
+        </details>
+      );
+    }
+
     function AlignmentFullContent({ row, defaultOpenCodes = false }) {
       return (
         <div>
@@ -466,14 +542,7 @@
           <GardinerSection row={row} defaultOpen={defaultOpenCodes} />
           <MdCSection row={row} defaultOpen={defaultOpenCodes} />
 
-          {row.notes && (
-            <>
-              <div style={S.section}>注释</div>
-              <div style={{ fontSize:14, color:"#5D4037", lineHeight:1.7 }}>
-                {row.notes}
-              </div>
-            </>
-          )}
+          <NotesSection notes={row.notes} />
         </div>
       );
     }
