@@ -43,12 +43,12 @@
     }
     .hiero-render-area svg { display: inline-block; vertical-align: middle; margin: 2px 0; }
     .official-hieroglyph-area {
-      padding: 10px 14px;
-      min-height: 48px;
+      padding: 8px 12px;
+      min-height: 42px;
     }
     .hiero-render-area .official-hieroglyph-svg {
       display: block;
-      height: clamp(34px, 3.2vw, 50px);
+      height: clamp(26px, 2.2vw, 34px);
       width: auto;
       max-width: none;
       object-fit: contain;
@@ -532,6 +532,23 @@
       );
     }
 
+    function CollapsedMetadataList({ label, items, color }) {
+      return (
+        <details style={{ marginTop:10, border:"1px solid #E8DCC8", borderRadius:6,
+          background:"#FFFDF8", padding:"0 12px" }}>
+          <summary style={{ padding:"10px 0", cursor:"pointer", color:"#8B7355",
+            fontFamily:"'JetBrains Mono',monospace", fontSize:11,
+            letterSpacing:"0.05em" }}>
+            {label}（{items.length}，点击展开）
+          </summary>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", maxHeight:220,
+            overflowY:"auto", padding:"4px 0 12px" }}>
+            {items.map(item => <span key={item} style={S.tag(color)}>{item}</span>)}
+          </div>
+        </details>
+      );
+    }
+
     function AlignmentFullContent({ row, defaultOpenCodes = false }) {
       return (
         <div>
@@ -698,7 +715,9 @@
               sectionKeys.add(`${chapter}|||${section}`);
             });
             const chapList = Object.values(chapMap).map(c => ({
-              ...c, sections: [...c.sections], sources: [...c.sources].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+              ...c,
+              sections: [...c.sections].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+              sources: [...c.sources].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
             })).sort((a, b) => {
               const minA = a.sources[0] || "";
               const minB = b.sources[0] || "";
@@ -943,12 +962,7 @@
                       <h2 style={{ fontSize:30, fontWeight:600, margin:"0 0 14px", color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>
                         {selChapter.chapter}
                       </h2>
-                      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
-                        {selChapter.sources.map(s =>
-                          <span key={s} style={S.tag("#C4956A")}>{s}</span>
-                        )}
-                      </div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
                         <div>
                           <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
                             color:"#8B7355", marginBottom:4 }}>文本行数</div>
@@ -956,12 +970,17 @@
                         </div>
                         <div>
                           <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                            color:"#8B7355", marginBottom:4 }}>来源文件</div>
+                          <div style={{ fontSize:15, fontWeight:500 }}>{selChapter.sources.length} 个</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
                             color:"#8B7355", marginBottom:4 }}>包含小节</div>
-                          <div style={{ fontSize:15, fontWeight:500 }}>
-                            {selChapter.sections.join("、")}
-                          </div>
+                          <div style={{ fontSize:15, fontWeight:500 }}>{selChapter.sections.length} 个</div>
                         </div>
                       </div>
+                      <CollapsedMetadataList label="源文件编号" items={selChapter.sources} color="#C4956A" />
+                      <CollapsedMetadataList label="包含小节" items={selChapter.sections} color="#7B9E87" />
                     </div>
 
                     {/* 按 section 分组显示行 */}
@@ -1014,13 +1033,9 @@
                             <div>
                               <h3 style={{ fontSize:22, fontWeight:600, margin:"0 0 10px",
                                 color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>{chap.chapter}</h3>
-                              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                                {chap.sources.map(s =>
-                                  <span key={s} style={S.tag("#C4956A")}>{s}</span>
-                                )}
-                                {chap.sections.map(s =>
-                                  <span key={s} style={S.tag("#7B9E87")}>{s}</span>
-                                )}
+                              <div style={{ fontFamily:"'JetBrains Mono',monospace",
+                                fontSize:11, color:"#8B7355", letterSpacing:"0.04em" }}>
+                                {chap.sources.length} 个来源文件 · {chap.sections.length} 个小节
                               </div>
                             </div>
                             <div style={{ textAlign:"right", flexShrink:0 }}>
