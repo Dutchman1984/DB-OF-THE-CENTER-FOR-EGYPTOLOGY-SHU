@@ -991,6 +991,14 @@
                 fontFamily:"'Noto Serif SC','Cormorant Garamond',serif"
               }}
             />
+            {!allActive && (
+              <button type="button" onClick={() => onSelect({ level:"all" })}
+                style={{ border:"1px solid #C4956A40", background:"#C4956A10", color:"#C4956A",
+                  borderRadius:999, padding:"5px 14px", fontSize:12, fontWeight:500,
+                  cursor:"pointer", whiteSpace:"nowrap" }}>
+                清除筛选
+              </button>
+            )}
           </div>
 
           {tree.map(cat => isCatOpen(cat.id) && (
@@ -1736,11 +1744,9 @@
                         ) : (
                           archiveListContext.groups.map((group, groupIndex) => (
                             <div key={group.label}>
-                              {archiveListContext.groups.length > 1 && (
-                                <div style={{ ...S.section, marginTop: groupIndex === 0 ? 14 : 20 }}>
-                                  {group.label}（{group.docs.length} 篇）
-                                </div>
-                              )}
+                              <div style={{ ...S.section, marginTop: groupIndex === 0 ? 14 : 20 }}>
+                                {group.label}（{group.docs.length} 篇）
+                              </div>
                               {group.docs.map((chap, idx) => (
                                 <div key={`${group.label}-${getDocumentKey(chap)}`} className="card-anim hover-card"
                                   style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
