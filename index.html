@@ -394,6 +394,166 @@
         transition:"all 0.2s", whiteSpace:"nowrap" }),
     };
 
+    const G = (name, ...docs) => ({ name, docs });
+    const DOCUMENT_CATEGORY_TREE = [
+      { id:"econ", name:"经济文献", color:"#C4956A", subs:[
+        { name:"土地清册文献", docs:["韦伯纸草"] },
+        { name:"税收文献", docs:["加德纳86号陶石片","大英博物馆10447号纸草","古拉布纸草残片","古拉布G号纸草残片",
+          "毕尔盖石碑","卢浮宫皮革残片（节选）","哈里斯1号纸草（节选）","卢浮宫27151号纸草",
+          "阿蒙最高祭司阿蒙霍特普的报酬（节选）","都灵2009+1999号纸草（节选）","都灵税表","都灵税收纸草","格里菲斯纸草残片（节选）"] },
+        { name:"财产交易文献", groups:[
+          G("（一）买卖契约","麦地那432号陶石片","都灵57173号陶石片","麦地那410号陶石片","皮特里14号陶石片",
+            "加德纳6814号陶石片","开罗65739号纸草","柏林12630号陶石片","开罗25553号陶石片","麦地那225号陶石片",
+            "加德纳181号陶石片","都灵167+2087号纸草（节选）","柏林10460号纸草"),
+          G("（二）租赁契约","塞尔尼16号陶石片","麦地那67号陶石片","米克利德斯5号陶石片","麦地那62号陶石片",
+            "加德纳140号陶石片","麦地那557号陶石片","麦地那424号陶石片","麦地那65号陶石片"),
+          G("（三）租赁、借用或买卖文献","皮特里4号陶石片","麦地那64号陶石片","皮特里78号陶石片","开罗25557号陶石片",
+            "麦地那425号陶石片","麦地那648号陶石片","米克利德斯2号陶石片","麦地那72号陶石片","米克利德斯84号陶石片",
+            "麦地那451号陶石片","开罗25604号陶石片","麦地那305号陶石片","阿什摩莱1933.810号陶石片（节选）",
+            "麦地那400号陶石片","麦地那68号陶石片","佛罗伦萨2620号陶石片","麦地那364号陶石片")
+        ] },
+        { name:"财产继承和转让文献", docs:["开罗27815号石碑（节选）","麦地那663号陶石片","布鲁塞尔6311号陶石片",
+          "开罗25583号陶石片","麦地那108号陶石片","麦地那671号陶石片","加德纳90号陶石片","加德纳89号陶石片",
+          "麦地那112号陶石片","卢浮宫13156（2425）号陶石片","麦地那586号陶石片","瑙奈赫特的遗嘱","都灵2021号纸草",
+          "柏林12636号纸草","加德纳272号陶石片","皮特里18号陶石片","都灵1885号纸草","都灵2070号纸草（节选）",
+          "麦地那1086号陶石片","都灵57024号陶石片","麦地那673号陶石片","收养纸草","皮特里16号陶石片"] },
+        { name:"社会经济状况文献", docs:["卢浮宫3171号纸草（节选）","撒利尔纸草（第四卷）背面","亚眠纸草","瓦朗赛1号纸草","都灵罢工纸草（节选）"] },
+      ] },
+      { id:"legal", name:"法律文献", color:"#7B9E87", subs:[
+        { name:"法律条文", groups:[
+          G("（一）王室敕令","赫拉姆海布敕令","塞提一世瑙瑞敕令","塞提一世赫尔摩坡里斯敕令","塞提一世卡奈斯敕令（节选）",
+            "拉美西斯二世阿尔曼特敕令（节选）","塞提二世卡尔纳克敕令（节选）","拉美西斯三世的埃利芬提尼敕令"),
+          G("（二）自传体铭文","维吉尔莱克米尔（节选）","维吉尔帕塞尔（节选）")
+        ] },
+        { name:"刑事", groups:[
+          G("（一）颠覆国家政权","瑞福德纸草"),
+          G("（二）叛逃","阿纳斯塔西Ⅴ号纸草（大英博物馆10244号）（节选）","阿纳斯塔西Ⅴ号纸草（大英博物馆10244号纸草）（节选）"),
+          G("（三）组织利用巫术破坏法律实施","利伊纸草","罗林纸草"),
+          G("（四）盗掘古墓","都灵残片","艾伯特待审人员名单（大英博物馆10221号背面）","艾伯特待审人员名单（大英博物馆10221号纸草背面）",
+            "梅尔A纸草（利物浦11162号）","梅尔A纸草（利物浦11162号纸草）","梅尔B纸草（利物浦11186号）","梅尔B纸草（利物浦11186号纸草）",
+            "利奥波德二世—阿姆赫尔斯特纸草","艾伯特纸草（大英博物馆10221号）","艾伯特纸草（大英博物馆10221号纸草）",
+            "大英博物馆10053号纸草（正面）","大英博物馆10053号纸草（背面）","大英博物馆10054号纸草","大英博物馆10052号纸草",
+            "大英博物馆10068号纸草（正面）","大英博物馆10068号纸草（背面）","大英博物馆10383号纸草","大英博物馆10403号纸草",
+            "阿姆布拉斯纸草（维也纳30号）","阿姆布拉斯纸草（维也纳30号纸草）"),
+          G("（五）盗窃","纳什1号陶石片（大英博物馆65930号）","纳什1号陶石片（大英博物馆65930号陶石片）","加德纳166号陶石片","都灵57381号陶石片"),
+          G("（六）故意伤害","都灵57062号陶石片"),
+          G("（七）诽谤","开罗25237号陶石片","开罗25556号陶石片","佛罗伦萨2619号陶石片（背面节选）"),
+          G("（八）侮辱","法国国家图书馆198.Ⅱ号纸草"),
+          G("（九）滥用职权","王室理发师撒巴斯泰特的黑色花岗岩雕像","麦地那27号纸草","大英博物馆10416号纸草",
+            "阿什摩莱博物馆1933.810号陶石片（背面节选）","邵特纸草（大英博物馆10055号）","邵特纸草（大英博物馆10055号纸草）",
+            "都灵审判纸草","都灵1887号纸草")
+        ] },
+        { name:"民事", groups:[
+          G("（一）物权","柏林10645+10646号陶石片","麦地那568号陶石片","开罗25584号陶石片","麦地那231号陶石片","麦地那579号陶石片","柏林9412号陶石片"),
+          G("（二）买卖","麦地那432号陶石片","都灵57173号陶石片","麦地那56号陶石片","麦地那410号陶石片","加德纳68号陶石片"),
+          G("（三）租赁","塞尔尼16号陶石片","麦地那67号陶石片","米克利德斯5号陶石片","麦地那62号陶石片","加德纳140号陶石片","麦地那557号陶石片","麦地那424号陶石片","麦地那65号陶石片"),
+          G("（四）民事纠纷","柏林3047号纸草","开罗65739号纸草","柏林11239号陶石片","柏林10496号纸草","佛罗伦萨2621号陶石片",
+            "开罗25725号陶石片+卢浮宫3259号陶石片","柏林10655号陶石片","麦地那592号陶石片","开罗25553号陶石片","柏林12630号陶石片",
+            "柏林14214号陶石片","芝加哥16991号陶石片","加德纳112号陶石片","加德纳165号陶石片","加德纳54号陶石片","加德纳53号陶石片",
+            "皮特里14号陶石片","麦地那582号陶石片","麦地那73号陶石片","麦地那569号陶石片","柏林1121号陶石片",
+            "皮特里9号陶石片（阿什摩莱1933.810号正面）","皮特里9号陶石片（阿什摩莱1933.810号陶石片正面）","加德纳104号陶石片","摩斯诉讼铭文"),
+          G("（五）与债务相关的法律誓言","米克利德斯1号陶石片","加德纳106号陶石片","麦地那564号陶石片","麦地那58号陶石片","麦地那61号陶石片","麦地那57号陶石片","都灵9754号陶石片")
+        ] },
+        { name:"神谕", docs:["开罗43649号文献（帕塞尔石碑）","开罗25555号陶石片","开罗25242号陶石片","麦地那672号陶石片",
+          "皮特里21号陶石片","麦地那448号陶石片","麦地那580号陶石片","麦地那26号纸草","大英博物馆5624号陶石片",
+          "开罗58092号纸草（布拉克Ⅹ号）","开罗58092号纸草（布拉克Ⅹ号纸草）","日内瓦12550号陶石片","柏林10629号陶石片",
+          "加德纳103号陶石片","大英博物馆5637号陶石片","大英博物馆10335号纸草"] },
+        { name:"国际条约", docs:["银板条约（拉美西斯二世与哈图什里之约）","银板条约（埃及法老拉美西斯二世与赫梯国王哈图什里之约）"] },
+        { name:"其他法律文献", docs:["麦地那310号陶石片","加德纳81号陶石片","都灵9622号陶石片","加德纳150号陶石片",
+          "米克利德斯47号陶石片","法国东方考古学研究所1357号陶石片","开罗72465号陶石片","加德纳64号陶石片","麦地那636号陶石片",
+          "布拉格12号陶石片","麦地那675号陶石片","柏林11241号陶石片","皮特里37号陶石片","维也纳大学陶石片","麦地那428号陶石片",
+          "都灵57007号陶石片（背面）","加德纳90号陶石片","加德纳132号陶石片","加德纳196号陶石片","加德纳1号陶石片"] },
+      ] },
+      { id:"lit", name:"文学文献", color:"#9C6B4E", subs:[
+        { name:"独立篇目", docs:["温阿蒙历险记","遭受厄运的王子"] },
+      ] },
+    ];
+
+    function normalizeDocumentName(name) {
+      return String(name || "")
+        .normalize("NFKC")
+        .replace(/[《》〈〉“”"'\s·、，,。:：;；\-—–_]/g, "")
+        .replace(/[()]/g, "")
+        .replace(/[（）]/g, "")
+        .replace(/號/g, "号")
+        .replace(/紙草/g, "纸草")
+        .replace(/陶片/g, "陶石片")
+        .replace(/陶器片/g, "陶石片")
+        .replace(/—/g, "");
+    }
+
+    function createChapterResolver(chapters) {
+      const exact = new Map();
+      const normalized = new Map();
+      chapters.forEach(chap => {
+        if (!chap.chapter) return;
+        exact.set(chap.chapter, chap);
+        const key = normalizeDocumentName(chap.chapter);
+        if (!normalized.has(key)) normalized.set(key, []);
+        normalized.get(key).push(chap);
+      });
+      return (name) => {
+        if (exact.has(name)) return exact.get(name);
+        const matches = normalized.get(normalizeDocumentName(name)) || [];
+        return matches.length === 1 ? matches[0] : null;
+      };
+    }
+
+    function uniqueDocs(docs) {
+      const seen = new Set();
+      const out = [];
+      docs.forEach(doc => {
+        if (!doc || seen.has(doc.chapter)) return;
+        seen.add(doc.chapter);
+        out.push(doc);
+      });
+      return out;
+    }
+
+    function getSubDocs(sub) {
+      return sub.groups ? uniqueDocs(sub.groups.flatMap(g => g.docs)) : uniqueDocs(sub.docs || []);
+    }
+
+    function getCatDocs(cat) {
+      return uniqueDocs((cat.subs || []).flatMap(getSubDocs));
+    }
+
+    function buildImportedCategoryTree(chapters) {
+      const resolveChapter = createChapterResolver(chapters);
+      const matched = new Set();
+      const tree = DOCUMENT_CATEGORY_TREE.map(cat => {
+        const subs = cat.subs.map(sub => {
+          if (sub.groups) {
+            const groups = sub.groups.map(group => ({
+              name: group.name,
+              docs: uniqueDocs(group.docs.map(name => {
+                const chap = resolveChapter(name);
+                if (chap) matched.add(chap.chapter);
+                return chap ? { ...chap, taxonomyName: name } : null;
+              }).filter(Boolean))
+            })).filter(group => group.docs.length > 0);
+            return { name: sub.name, groups };
+          }
+          const docs = uniqueDocs((sub.docs || []).map(name => {
+            const chap = resolveChapter(name);
+            if (chap) matched.add(chap.chapter);
+            return chap ? { ...chap, taxonomyName: name } : null;
+          }).filter(Boolean));
+          return { name: sub.name, docs };
+        }).filter(sub => getSubDocs(sub).length > 0);
+        return { ...cat, subs };
+      }).filter(cat => getCatDocs(cat).length > 0);
+      const uncategorized = chapters.filter(chap => !matched.has(chap.chapter));
+      return { tree, uncategorized };
+    }
+
+    function selectionMatches(sel, level, catId = null, subIndex = null, groupIndex = null) {
+      return sel.level === level
+        && (catId === null || sel.catId === catId)
+        && (subIndex === null || sel.subIndex === subIndex)
+        && (groupIndex === null || sel.groupIndex === groupIndex);
+    }
+
     // ── 组件 ──
     function Spinner({ label = "Querying corpus index..." }) {
       return (
@@ -678,6 +838,196 @@
       );
     }
 
+    function CompactCategoryButton({ active, color, children, count, onClick, onToggle, expanded, hasToggle }) {
+      return (
+        <span style={{ display:"inline-flex", alignItems:"center", gap:0 }}>
+          <button
+            type="button"
+            onClick={onClick}
+            style={{
+              display:"inline-flex", alignItems:"center", gap:6,
+              border:`1px solid ${active ? "#C4956A" : "#E8DCC8"}`,
+              background: active ? "rgba(196,149,106,.18)" : "rgba(255,252,247,.78)",
+              color: active ? "#3D261A" : "#8B7355",
+              borderRadius:20,
+              padding:"5px 10px",
+              fontSize:12,
+              lineHeight:1.25,
+              fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
+              cursor:"pointer",
+              boxShadow: active ? "0 0 0 2px rgba(196,149,106,.32) inset" : "none",
+              transition:"all .16s ease"
+            }}>
+            {color && <span style={{ width:7, height:7, borderRadius:"50%", background:color, opacity:.75 }} />}
+            <span>{children}</span>
+            {Number.isFinite(count) && (
+              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:active ? "#8A5A2F" : "#A09080" }}>
+                {count}
+              </span>
+            )}
+          </button>
+          {hasToggle && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggle?.(e); }}
+              aria-label={expanded ? "收起" : "展开"}
+              style={{
+                marginLeft:-4,
+                border:"1px solid #E8DCC8",
+                background:"rgba(255,252,247,.78)",
+                color:"#A09080",
+                borderRadius:20,
+                width:24,
+                height:24,
+                fontSize:10,
+                lineHeight:"20px",
+                cursor:"pointer",
+                transform: expanded ? "rotate(90deg)" : "none",
+                transition:"transform .16s ease"
+              }}>
+              ▶
+            </button>
+          )}
+        </span>
+      );
+    }
+
+    function ArchiveCategoryIndex({
+      tree,
+      uncategorized,
+      selection,
+      expandedCats,
+      expandedSubs,
+      archiveDocQuery,
+      onQueryChange,
+      onSelect,
+      onToggleCat,
+      onToggleSub,
+      totalDocs,
+      visibleDocs,
+      breadcrumb
+    }) {
+      const isCatOpen = id => expandedCats.includes(id);
+      const isSubOpen = key => expandedSubs.includes(key);
+      const allActive = selection.level === "all";
+
+      return (
+        <div style={{
+          background:"rgba(255,252,247,.78)",
+          border:"1px solid #E8DCC8",
+          borderRadius:8,
+          padding:"12px 14px",
+          marginBottom:18
+        }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            gap:12, marginBottom:10, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+              <CompactCategoryButton
+                active={allActive}
+                count={totalDocs}
+                onClick={() => onSelect({ level:"all" })}>
+                全部文献
+              </CompactCategoryButton>
+              {tree.map(cat => (
+                <CompactCategoryButton
+                  key={cat.id}
+                  active={selectionMatches(selection, "cat", cat.id)}
+                  color={cat.color}
+                  count={getCatDocs(cat).length}
+                  hasToggle={cat.subs.length > 0}
+                  expanded={isCatOpen(cat.id)}
+                  onClick={() => onSelect({ level:"cat", catId:cat.id })}
+                  onToggle={() => onToggleCat(cat.id)}>
+                  {cat.name}
+                </CompactCategoryButton>
+              ))}
+              {uncategorized.length > 0 && (
+                <CompactCategoryButton
+                  active={selectionMatches(selection, "uncategorized")}
+                  count={uncategorized.length}
+                  onClick={() => onSelect({ level:"uncategorized" })}>
+                  待归类
+                </CompactCategoryButton>
+              )}
+            </div>
+            <input
+              value={archiveDocQuery}
+              onChange={e => onQueryChange(e.target.value)}
+              placeholder="在当前分类中按文献名筛选…"
+              style={{
+                minWidth:220,
+                flex:"0 1 280px",
+                border:"1px solid #E8DCC8",
+                borderRadius:20,
+                padding:"6px 12px",
+                background:"#FFFCF7",
+                color:"#3D261A",
+                outline:"none",
+                fontSize:12,
+                fontFamily:"'Noto Serif SC','Cormorant Garamond',serif"
+              }}
+            />
+          </div>
+
+          {tree.map(cat => isCatOpen(cat.id) && (
+            <div key={`open-${cat.id}`} style={{ marginTop:8, padding:"8px 10px",
+              border:"1px solid #E8DCC8", borderRadius:8, background:"rgba(245,240,232,.55)" }}>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {cat.subs.map((sub, subIndex) => {
+                  const subKey = `${cat.id}:${subIndex}`;
+                  const hasGroups = !!sub.groups && sub.groups.length > 0;
+                  return (
+                    <CompactCategoryButton
+                      key={subKey}
+                      active={selectionMatches(selection, "sub", cat.id, subIndex)}
+                      color={cat.color}
+                      count={getSubDocs(sub).length}
+                      hasToggle={hasGroups}
+                      expanded={isSubOpen(subKey)}
+                      onClick={() => onSelect({ level:"sub", catId:cat.id, subIndex })}
+                      onToggle={() => onToggleSub(subKey)}>
+                      {sub.name}
+                    </CompactCategoryButton>
+                  );
+                })}
+              </div>
+              {cat.subs.map((sub, subIndex) => {
+                const subKey = `${cat.id}:${subIndex}`;
+                if (!sub.groups || !isSubOpen(subKey)) return null;
+                return (
+                  <div key={`groups-${subKey}`} style={{ display:"flex", gap:6, flexWrap:"wrap",
+                    paddingTop:8, marginTop:8, borderTop:"1px solid #E8DCC8" }}>
+                    {sub.groups.map((group, groupIndex) => (
+                      <CompactCategoryButton
+                        key={`${subKey}:${groupIndex}`}
+                        active={selectionMatches(selection, "group", cat.id, subIndex, groupIndex)}
+                        color={cat.color}
+                        count={group.docs.length}
+                        onClick={() => onSelect({ level:"group", catId:cat.id, subIndex, groupIndex })}>
+                        {group.name}
+                      </CompactCategoryButton>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          <div style={{ marginTop:10, display:"flex", justifyContent:"space-between",
+            gap:12, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace", color:"#8B7355",
+              letterSpacing:"0.04em" }}>
+              {breadcrumb.join(" › ")}
+            </div>
+            <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace", color:"#C4956A",
+              letterSpacing:"0.04em" }}>
+              {visibleDocs.length} 篇
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // ── 主应用 ──
     function App() {
       const [tab, setTab] = useState("search");
@@ -689,6 +1039,10 @@
       const [selChapter, setSelChapter] = useState(null);
       const [chapterLines, setChapterLines] = useState([]);
       const [chapterLinesLoading, setChapterLinesLoading] = useState(false);
+      const [archiveSelection, setArchiveSelection] = useState({ level:"all" });
+      const [expandedArchiveCats, setExpandedArchiveCats] = useState([]);
+      const [expandedArchiveSubs, setExpandedArchiveSubs] = useState([]);
+      const [archiveDocQuery, setArchiveDocQuery] = useState("");
 
       // ── 搜索状态 ──
       const [q, setQ] = useState("");
@@ -914,6 +1268,81 @@
         });
         return groups;
       }, [chapterLines]);
+
+      const archiveCategoryData = useMemo(() => buildImportedCategoryTree(chapters), [chapters]);
+
+      const toggleArchiveCat = useCallback((catId) => {
+        setExpandedArchiveCats(prev =>
+          prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+        );
+      }, []);
+
+      const toggleArchiveSub = useCallback((subKey) => {
+        setExpandedArchiveSubs(prev =>
+          prev.includes(subKey) ? prev.filter(key => key !== subKey) : [...prev, subKey]
+        );
+      }, []);
+
+      const selectArchiveCategory = useCallback((selection) => {
+        setArchiveSelection(selection);
+        setArchiveDocQuery("");
+      }, []);
+
+      const archiveListContext = useMemo(() => {
+        const { tree, uncategorized } = archiveCategoryData;
+        const groups = [];
+        let breadcrumb = ["全部文献"];
+        const addGroup = (label, docs) => {
+          const unique = uniqueDocs(docs || []);
+          if (unique.length > 0) groups.push({ label, docs: unique });
+        };
+
+        if (archiveSelection.level === "cat") {
+          const cat = tree.find(item => item.id === archiveSelection.catId);
+          if (cat) {
+            breadcrumb = ["全部文献", cat.name];
+            cat.subs.forEach(sub => addGroup(sub.name, getSubDocs(sub)));
+          }
+        } else if (archiveSelection.level === "sub") {
+          const cat = tree.find(item => item.id === archiveSelection.catId);
+          const sub = cat?.subs?.[archiveSelection.subIndex];
+          if (cat && sub) {
+            breadcrumb = ["全部文献", cat.name, sub.name];
+            if (sub.groups) sub.groups.forEach(group => addGroup(group.name, group.docs));
+            else addGroup(sub.name, sub.docs);
+          }
+        } else if (archiveSelection.level === "group") {
+          const cat = tree.find(item => item.id === archiveSelection.catId);
+          const sub = cat?.subs?.[archiveSelection.subIndex];
+          const group = sub?.groups?.[archiveSelection.groupIndex];
+          if (cat && sub && group) {
+            breadcrumb = ["全部文献", cat.name, sub.name, group.name];
+            addGroup(group.name, group.docs);
+          }
+        } else if (archiveSelection.level === "uncategorized") {
+          breadcrumb = ["全部文献", "待归类"];
+          addGroup("待归类", uncategorized);
+        } else {
+          tree.forEach(cat => addGroup(cat.name, getCatDocs(cat)));
+          if (uncategorized.length > 0) addGroup("待归类", uncategorized);
+        }
+
+        const keyword = archiveDocQuery.trim();
+        const filteredGroups = groups.map(group => ({
+          ...group,
+          docs: group.docs.filter(doc => {
+            if (!keyword) return true;
+            return String(doc.chapter || "").includes(keyword)
+              || String(doc.taxonomyName || "").includes(keyword);
+          })
+        })).filter(group => group.docs.length > 0);
+
+        return {
+          groups: filteredGroups,
+          breadcrumb,
+          visibleDocs: uniqueDocs(filteredGroups.flatMap(group => group.docs))
+        };
+      }, [archiveCategoryData, archiveSelection, archiveDocQuery]);
 
       const selectedSearchChapterSet = useMemo(
         () => new Set(selectedSearchChapters),
@@ -1226,32 +1655,63 @@
                     <div style={S.section}>文献目录 (DOCUMENT INDEX)</div>
 
                     {chaptersLoading ? <Spinner label="Loading documents..." /> : (
-                      chapters.map((chap, idx) => (
-                        <div key={chap.chapter} className="card-anim hover-card"
-                          style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
-                            borderRadius:8, padding:"20px 24px", marginBottom:14,
-                            cursor:"pointer", animationDelay:`${idx * 0.06}s` }}
-                          onClick={() => openChapter(chap)}>
-                          <div style={{ display:"flex", justifyContent:"space-between",
-                            alignItems:"flex-start" }}>
-                            <div>
-                              <h3 style={{ fontSize:22, fontWeight:600, margin:"0 0 10px",
-                                color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>{chap.chapter}</h3>
-                              <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-                                <span style={S.tag("#C4956A")}>{chap.sources.length} 个来源文件</span>
-                                <span style={S.tag("#7B9E87")}>{chap.sections.length} 个小节</span>
-                              </div>
+                      <>
+                        <ArchiveCategoryIndex
+                          tree={archiveCategoryData.tree}
+                          uncategorized={archiveCategoryData.uncategorized}
+                          selection={archiveSelection}
+                          expandedCats={expandedArchiveCats}
+                          expandedSubs={expandedArchiveSubs}
+                          archiveDocQuery={archiveDocQuery}
+                          onQueryChange={setArchiveDocQuery}
+                          onSelect={selectArchiveCategory}
+                          onToggleCat={toggleArchiveCat}
+                          onToggleSub={toggleArchiveSub}
+                          totalDocs={chapters.length}
+                          visibleDocs={archiveListContext.visibleDocs}
+                          breadcrumb={archiveListContext.breadcrumb}
+                        />
+
+                        {archiveListContext.groups.length === 0 ? (
+                          <EmptyState title="当前分类下暂无文献" msg="没有找到已导入且匹配当前筛选条件的文献" />
+                        ) : (
+                          archiveListContext.groups.map((group, groupIndex) => (
+                            <div key={group.label}>
+                              {(archiveListContext.groups.length > 1 || archiveSelection.level !== "group") && (
+                                <div style={{ ...S.section, marginTop: groupIndex === 0 ? 14 : 20 }}>
+                                  {group.label}（{group.docs.length} 篇）
+                                </div>
+                              )}
+                              {group.docs.map((chap, idx) => (
+                                <div key={`${group.label}-${chap.chapter}`} className="card-anim hover-card"
+                                  style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
+                                    borderRadius:8, padding:"18px 22px", marginBottom:12,
+                                    cursor:"pointer", animationDelay:`${Math.min(idx, 10) * 0.035}s` }}
+                                  onClick={() => openChapter(chap)}>
+                                  <div style={{ display:"flex", justifyContent:"space-between",
+                                    alignItems:"flex-start", gap:16 }}>
+                                    <div>
+                                      <h3 style={{ fontSize:22, fontWeight:600, margin:"0 0 10px",
+                                        color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>{chap.chapter}</h3>
+                                      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                                        <span style={S.tag("#C4956A")}>{chap.sources.length} 个来源文件</span>
+                                        <span style={S.tag("#7B9E87")}>{chap.sections.length} 个小节</span>
+                                      </div>
+                                    </div>
+                                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                                      <div style={{ fontSize:24, fontWeight:700, color:"#C4956A" }}>
+                                        {chap.count}
+                                      </div>
+                                      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10,
+                                        color:"#A09080", letterSpacing:"0.1em" }}>LINES</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <div style={{ textAlign:"right", flexShrink:0 }}>
-                              <div style={{ fontSize:24, fontWeight:700, color:"#C4956A" }}>
-                                {chap.count}
-                              </div>
-                              <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10,
-                                color:"#A09080", letterSpacing:"0.1em" }}>LINES</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                          ))
+                        )}
+                      </>
                     )}
                   </>
                 )}
