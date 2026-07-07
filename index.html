@@ -570,7 +570,7 @@
           <button onClick={onBack} style={{ background:"none", border:"none",
             color:"#C4956A", fontSize:13, fontFamily:"'JetBrains Mono',monospace",
             cursor:"pointer", padding:0, marginBottom:20, textDecoration:"underline" }}>
-            ← 返回列表
+            ← 返回
           </button>
           <div style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
             borderRadius:8, padding:"22px 26px", marginBottom:20 }}>
@@ -604,7 +604,7 @@
     }
 
     // ── 单条对齐结果卡片 ──
-    function AlignmentCard({ row, idx, showChapter, query, onOpenDetail }) {
+    function AlignmentCard({ row, idx, showChapter, query, onOpenDetail, onOpenChapter }) {
       const [expanded, setExpanded] = useState(false);
       return (
         <div className="card-anim hover-card" style={{
@@ -619,7 +619,16 @@
             marginBottom:10 }}>
             <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
               {showChapter && (
-                <span style={S.tag("#C4956A")}>{row.chapter}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenChapter && onOpenChapter(row.chapter);
+                  }}
+                  title={`打开「${row.chapter}」文献页`}
+                  style={{ ...S.tag("#C4956A"), appearance:"none", cursor:"pointer" }}>
+                  {row.chapter}
+                </button>
               )}
               <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
                 color:"#8B7355", letterSpacing:"0.06em" }}>
@@ -689,6 +698,7 @@
       const [selectedSearchChapters, setSelectedSearchChapters] = useState([]);
       const searchTimer = useRef(null);
       const [selectedAlignment, setSelectedAlignment] = useState(null);
+      const [viewHistory, setViewHistory] = useState([]);
 
       // ── 统计 ──
       const [corpusStats, setCorpusStats] = useState({
@@ -773,8 +783,34 @@
         return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
       }, [q]);
 
+      const captureCurrentView = useCallback(() => ({
+        tab,
+        selChapter,
+        selectedAlignment,
+        q,
+        selectedSearchChapters,
+        scrollY: window.scrollY || 0
+      }), [tab, selChapter, selectedAlignment, q, selectedSearchChapters]);
+
+      const pushCurrentView = useCallback(() => {
+        const view = captureCurrentView();
+        setViewHistory(prev => [...prev, view]);
+      }, [captureCurrentView]);
+
+      const restoreView = useCallback((view) => {
+        setTab(view.tab || "search");
+        setSelChapter(view.selChapter || null);
+        setSelectedAlignment(view.selectedAlignment || null);
+        setSelectedSearchChapters(view.selectedSearchChapters || []);
+        setQ(view.q || "");
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: view.scrollY || 0, behavior: "auto" });
+        });
+      }, []);
+
       // ── 点击章节加载全部行 ──
       const openChapter = useCallback(async (chap) => {
+        pushCurrentView();
         const chapterName = chap.chapter || "未命名文献";
         setSelChapter({
           chapter: chapterName,
@@ -783,8 +819,10 @@
           sections: chap.sections || []
         });
         setSelectedAlignment(null);
+        setTab("archive");
         setChapterLines([]);
         setChapterLinesLoading(true);
+        requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
         try {
           const data = await fetchAllRows("alignments", {
             filters: { chapter: chapterName },
@@ -800,7 +838,8 @@
           console.error("Failed to load chapter lines:", e);
         }
         setChapterLinesLoading(false);
-      }, []);
+        requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+      }, [pushCurrentView]);
 
       const openChapterByName = useCallback((chapterName) => {
         if (!chapterName) return;
@@ -810,15 +849,14 @@
           sources: [],
           sections: []
         };
-        setTab("archive");
         openChapter(chap);
-        window.scrollTo({ top: 0, behavior: "smooth" });
       }, [chapters, openChapter]);
 
       const openAlignmentDetail = useCallback((row) => {
+        pushCurrentView();
         setSelectedAlignment(row);
         window.scrollTo({ top: 0, behavior: "smooth" });
-      }, []);
+      }, [pushCurrentView]);
 
       const closeAlignmentDetail = useCallback(() => {
         setSelectedAlignment(null);
@@ -835,17 +873,36 @@
         window.scrollTo({ top: 0, behavior: "smooth" });
       }, []);
 
+      const goBack = useCallback(() => {
+        const previous = viewHistory[viewHistory.length - 1];
+        if (previous) {
+          setViewHistory(prev => prev.slice(0, -1));
+          restoreView(previous);
+          return;
+        }
+        if (selectedAlignment) {
+          setSelectedAlignment(null);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+        if (selChapter) {
+          setSelChapter(null);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+        if (q.trim()) resetSearchHome();
+      }, [viewHistory, restoreView, selectedAlignment, selChapter, q, resetSearchHome]);
+
       // ── ESC 返回 ──
       useEffect(() => {
         const fn = e => {
           if (e.key === "Escape") {
-            if (selectedAlignment) setSelectedAlignment(null);
-            else setSelChapter(null);
+            goBack();
           }
         };
         window.addEventListener("keydown", fn);
         return () => window.removeEventListener("keydown", fn);
-      }, [selectedAlignment]);
+      }, [goBack]);
 
       // 按 section 分组
       const linesBySection = useMemo(() => {
@@ -964,7 +1021,7 @@
 
             {selectedAlignment && (
               <AlignmentDetail row={selectedAlignment}
-                onBack={closeAlignmentDetail}
+                onBack={goBack}
                 onOpenChapter={openChapterByName} />
             )}
 
@@ -976,7 +1033,7 @@
                     border:"none", color:"#C4956A", fontSize:13,
                     fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", padding:0,
                     marginBottom:18, textDecoration:"underline" }}>
-                    ← 返回首页
+                    ← 返回
                   </button>
                 )}
 
@@ -984,7 +1041,7 @@
                 <div style={{ marginBottom:28 }}>
                   <div style={{ fontSize:13, fontFamily:"'JetBrains Mono',monospace",
                     color:"#8B7355", marginBottom:10, letterSpacing:"0.06em" }}>
-                    支持拉丁转写 · 中文翻译 · Gardiner 编码三维检索 · 展开卡片可查看 SVG 圣书体渲染
+                    支持文献名 · 拉丁转写 · 中文翻译 · Gardiner 编码检索
                   </div>
                   <input
                     className="search-input"
@@ -1083,7 +1140,8 @@
                     )}
                     {visibleSearchResults.map((row, idx) =>
                       <AlignmentCard key={row.id} row={row} idx={idx} showChapter={true}
-                        query={q} onOpenDetail={openAlignmentDetail} />
+                        query={q} onOpenDetail={openAlignmentDetail}
+                        onOpenChapter={openChapterByName} />
                     )}
                   </>
                 ) : null}
@@ -1096,11 +1154,11 @@
                 {selChapter ? (
                   // ── 章节详情 ──
                   <div>
-                    <button onClick={() => setSelChapter(null)} style={{ background:"none",
+                    <button onClick={goBack} style={{ background:"none",
                       border:"none", color:"#C4956A", fontSize:13,
                       fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", padding:0,
                       marginBottom:20, textDecoration:"underline" }}>
-                      ← 返回文献列表
+                      ← 返回
                     </button>
 
                     <div style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
