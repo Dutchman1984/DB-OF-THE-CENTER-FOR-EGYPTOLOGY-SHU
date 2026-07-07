@@ -678,6 +678,7 @@
       const [searchResults, setSearchResults] = useState(null);
       const [searchLoading, setSearchLoading] = useState(false);
       const [resultCount, setResultCount] = useState(0);
+      const [selectedSearchChapters, setSelectedSearchChapters] = useState([]);
       const searchTimer = useRef(null);
       const [selectedAlignment, setSelectedAlignment] = useState(null);
 
@@ -740,7 +741,12 @@
 
       // ── 搜索（防抖 500ms）──
       useEffect(() => {
-        if (!q.trim()) { setSearchResults(null); setSearchLoading(false); return; }
+        if (!q.trim()) {
+          setSearchResults(null);
+          setSelectedSearchChapters([]);
+          setSearchLoading(false);
+          return;
+        }
         setSearchLoading(true);
         if (searchTimer.current) clearTimeout(searchTimer.current);
         searchTimer.current = setTimeout(async () => {
@@ -748,9 +754,11 @@
             const data = await sb.rpc("search_corpus", { query_text: q.trim() });
             setSearchResults(data);
             setResultCount(data.length);
+            setSelectedSearchChapters([]);
           } catch (e) {
             console.error("Search failed:", e);
             setSearchResults([]);
+            setSelectedSearchChapters([]);
           }
           setSearchLoading(false);
         }, 500);
@@ -808,18 +816,55 @@
         return groups;
       }, [chapterLines]);
 
+      const selectedSearchChapterSet = useMemo(
+        () => new Set(selectedSearchChapters),
+        [selectedSearchChapters]
+      );
+
+      // 搜索结果中的文献胶囊筛选器
+      const searchDocumentFilters = useMemo(() => {
+        if (!searchResults || searchResults.length === 0) return [];
+        const docMap = new Map();
+        searchResults.forEach((row, idx) => {
+          const chapter = row.chapter || "未命名文献";
+          if (!docMap.has(chapter)) {
+            docMap.set(chapter, { chapter, count: 0, firstIndex: idx });
+          }
+          docMap.get(chapter).count++;
+        });
+        return [...docMap.values()].sort((a, b) =>
+          b.count - a.count || a.firstIndex - b.firstIndex
+        );
+      }, [searchResults]);
+
+      const visibleSearchResults = useMemo(() => {
+        if (!searchResults) return null;
+        if (selectedSearchChapters.length === 0) return searchResults;
+        return searchResults.filter(row =>
+          selectedSearchChapterSet.has(row.chapter || "未命名文献")
+        );
+      }, [searchResults, selectedSearchChapters.length, selectedSearchChapterSet]);
+
+      const toggleSearchChapterFilter = useCallback((chapter) => {
+        setSelectedSearchChapters(prev =>
+          prev.includes(chapter)
+            ? prev.filter(item => item !== chapter)
+            : [...prev, chapter]
+        );
+      }, []);
+
       // 搜索结果中的唯一 Gardiner 符号统计
       const gardinerStats = useMemo(() => {
-        if (!searchResults || searchResults.length === 0) return [];
+        if (!visibleSearchResults || visibleSearchResults.length === 0) return [];
         const counts = {};
-        searchResults.forEach(r => {
+        visibleSearchResults.forEach(r => {
           (r.search_gardiner || "").split(/\s+/).filter(Boolean).forEach(g => {
             if (g === "\\t") return;
             counts[g] = (counts[g] || 0) + 1;
           });
         });
         return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 20);
-      }, [searchResults]);
+      }, [visibleSearchResults]);
 
       return (
         <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", minHeight:"100vh", color:"#2C1810" }}>
@@ -899,6 +944,9 @@
                     <div style={{ marginTop:10, fontFamily:"'JetBrains Mono',monospace",
                       fontSize:12, color:"#C4956A", letterSpacing:"0.05em" }}>
                       找到 {resultCount} 条匹配结果
+                      {selectedSearchChapters.length > 0 && visibleSearchResults
+                        ? ` · 当前显示 ${visibleSearchResults.length} 条`
+                        : ""}
                     </div>
                   )}
                 </div>
@@ -915,8 +963,60 @@
                   <EmptyState title="未找到匹配结果" msg={`语料中未检索到「${q}」`} />
                 ) : searchResults ? (
                   <>
+                    {searchDocumentFilters.length > 0 && (
+                      <div style={{ marginBottom:18, padding:"14px 16px", background:"#FFFDF8",
+                        borderRadius:8, border:"1px solid #E8DCC8" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between",
+                          alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
+                          <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                            color:"#8B7355", letterSpacing:"0.1em" }}>
+                            按文献筛选 · 未选择时显示全部
+                          </div>
+                          {selectedSearchChapters.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSearchChapters([])}
+                              style={{ border:"1px solid #C4956A30", background:"#C4956A10",
+                                color:"#8B7355", borderRadius:999, padding:"4px 10px",
+                                fontSize:10, fontFamily:"'JetBrains Mono',monospace",
+                                letterSpacing:"0.05em", cursor:"pointer" }}>
+                              清除选择
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                          {searchDocumentFilters.map(doc => {
+                            const active = selectedSearchChapterSet.has(doc.chapter);
+                            return (
+                              <button
+                                key={doc.chapter}
+                                type="button"
+                                onClick={() => toggleSearchChapterFilter(doc.chapter)}
+                                style={{
+                                  border:`1px solid ${active ? "#C4956A" : "#C4956A30"}`,
+                                  background: active ? "#C4956A33" : "#C4956A12",
+                                  color: active ? "#5D351F" : "#9A7658",
+                                  borderRadius:999,
+                                  padding:"5px 12px",
+                                  fontSize:11,
+                                  fontFamily:"'Noto Serif SC','JetBrains Mono',serif",
+                                  fontWeight: active ? 600 : 500,
+                                  letterSpacing:"0.03em",
+                                  cursor:"pointer",
+                                  boxShadow: active ? "0 1px 8px rgba(196,149,106,0.18)" : "none",
+                                  transition:"all 0.16s ease"
+                                }}
+                                title={`点击${active ? "取消筛选" : "只显示"}「${doc.chapter}」`}>
+                                {doc.chapter} · {doc.count}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Gardiner 符号频率（仅在 Gardiner 搜索时有意义） */}
-                    {gardinerStats.length > 0 && searchResults.some(r => r.match_field === "search_gardiner") && (
+                    {gardinerStats.length > 0 && visibleSearchResults.some(r => r.match_field === "search_gardiner") && (
                       <div style={{ marginBottom:20, padding:"14px 18px", background:"#F5F0E8",
                         borderRadius:8, border:"1px solid #E8DCC8" }}>
                         <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
@@ -935,7 +1035,7 @@
                         </div>
                       </div>
                     )}
-                    {searchResults.map((row, idx) =>
+                    {visibleSearchResults.map((row, idx) =>
                       <AlignmentCard key={row.id} row={row} idx={idx} showChapter={true}
                         query={q} onOpenDetail={openAlignmentDetail} />
                     )}
