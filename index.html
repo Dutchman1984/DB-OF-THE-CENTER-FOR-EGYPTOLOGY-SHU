@@ -564,7 +564,7 @@
       );
     }
 
-    function AlignmentDetail({ row, onBack }) {
+    function AlignmentDetail({ row, onBack, onOpenChapter }) {
       return (
         <div>
           <button onClick={onBack} style={{ background:"none", border:"none",
@@ -575,7 +575,15 @@
           <div style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
             borderRadius:8, padding:"22px 26px", marginBottom:20 }}>
             <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", marginBottom:12 }}>
-              {row.chapter && <span style={S.tag("#C4956A")}>{row.chapter}</span>}
+              {row.chapter && (
+                <button
+                  type="button"
+                  onClick={() => onOpenChapter && onOpenChapter(row.chapter)}
+                  title={`打开「${row.chapter}」文献页`}
+                  style={{ ...S.tag("#C4956A"), appearance:"none", cursor:"pointer" }}>
+                  {row.chapter}
+                </button>
+              )}
               {row.section && <span style={S.tag("#7B9E87")}>{row.section}</span>}
               <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
                 color:"#8B7355", letterSpacing:"0.06em" }}>
@@ -767,21 +775,45 @@
 
       // ── 点击章节加载全部行 ──
       const openChapter = useCallback(async (chap) => {
-        setSelChapter(chap);
+        const chapterName = chap.chapter || "未命名文献";
+        setSelChapter({
+          chapter: chapterName,
+          count: chap.count || 0,
+          sources: chap.sources || [],
+          sections: chap.sections || []
+        });
         setSelectedAlignment(null);
         setChapterLines([]);
         setChapterLinesLoading(true);
         try {
           const data = await fetchAllRows("alignments", {
-            filters: { chapter: chap.chapter },
+            filters: { chapter: chapterName },
             order: "source_file.asc,physical_line.asc"
           });
           setChapterLines(data);
+          const sources = [...new Set(data.map(row => row.source_file || "未标注文献源"))]
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+          const sections = [...new Set(data.map(row => row.section || "未分类"))]
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+          setSelChapter({ chapter: chapterName, count: data.length, sources, sections });
         } catch (e) {
           console.error("Failed to load chapter lines:", e);
         }
         setChapterLinesLoading(false);
       }, []);
+
+      const openChapterByName = useCallback((chapterName) => {
+        if (!chapterName) return;
+        const chap = chapters.find(item => item.chapter === chapterName) || {
+          chapter: chapterName,
+          count: 0,
+          sources: [],
+          sections: []
+        };
+        setTab("archive");
+        openChapter(chap);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, [chapters, openChapter]);
 
       const openAlignmentDetail = useCallback((row) => {
         setSelectedAlignment(row);
@@ -790,6 +822,16 @@
 
       const closeAlignmentDetail = useCallback(() => {
         setSelectedAlignment(null);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, []);
+
+      const resetSearchHome = useCallback(() => {
+        setQ("");
+        setSearchResults(null);
+        setResultCount(0);
+        setSelectedSearchChapters([]);
+        setSelectedAlignment(null);
+        setTab("search");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }, []);
 
@@ -921,12 +963,23 @@
           <div style={{ maxWidth:1000, margin:"0 auto", padding:"30px 16px" }}>
 
             {selectedAlignment && (
-              <AlignmentDetail row={selectedAlignment} onBack={closeAlignmentDetail} />
+              <AlignmentDetail row={selectedAlignment}
+                onBack={closeAlignmentDetail}
+                onOpenChapter={openChapterByName} />
             )}
 
             {/* ═══════════════════ 全文检索 TAB ═══════════════════ */}
             {!selectedAlignment && tab === "search" && (
               <>
+                {q.trim() && (
+                  <button onClick={resetSearchHome} style={{ background:"none",
+                    border:"none", color:"#C4956A", fontSize:13,
+                    fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", padding:0,
+                    marginBottom:18, textDecoration:"underline" }}>
+                    ← 返回首页
+                  </button>
+                )}
+
                 {/* 搜索框 */}
                 <div style={{ marginBottom:28 }}>
                   <div style={{ fontSize:13, fontFamily:"'JetBrains Mono',monospace",
