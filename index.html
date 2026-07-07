@@ -941,12 +941,57 @@
                     style={S.input}
                   />
                   {q.trim() && !searchLoading && searchResults && (
-                    <div style={{ marginTop:10, fontFamily:"'JetBrains Mono',monospace",
-                      fontSize:12, color:"#C4956A", letterSpacing:"0.05em" }}>
-                      找到 {resultCount} 条匹配结果
-                      {selectedSearchChapters.length > 0 && visibleSearchResults
-                        ? ` · 当前显示 ${visibleSearchResults.length} 条`
-                        : ""}
+                    <div>
+                      <div style={{ marginTop:10, fontFamily:"'JetBrains Mono',monospace",
+                        fontSize:12, color:"#C4956A", letterSpacing:"0.05em" }}>
+                        找到 {resultCount} 条匹配结果
+                        {selectedSearchChapters.length > 0 && visibleSearchResults
+                          ? ` · 当前显示 ${visibleSearchResults.length} 条`
+                          : ""}
+                      </div>
+                      {searchDocumentFilters.length > 0 && (
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:9, marginTop:12 }}>
+                          {searchDocumentFilters.map(doc => {
+                            const active = selectedSearchChapterSet.has(doc.chapter);
+                            return (
+                              <button
+                                key={doc.chapter}
+                                type="button"
+                                onClick={() => toggleSearchChapterFilter(doc.chapter)}
+                                style={{
+                                  border:`1px solid ${active ? "#C4956A" : "#C4956A35"}`,
+                                  background: active ? "#C4956A40" : "#C4956A14",
+                                  color: active ? "#4A2A18" : "#9A7658",
+                                  borderRadius:999,
+                                  padding:"7px 15px",
+                                  fontSize:15,
+                                  lineHeight:1.25,
+                                  fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
+                                  fontWeight: active ? 600 : 500,
+                                  letterSpacing:"0.02em",
+                                  cursor:"pointer",
+                                  boxShadow: active ? "0 2px 10px rgba(196,149,106,0.18)" : "none",
+                                  transition:"all 0.16s ease"
+                                }}
+                                title={`点击${active ? "取消筛选" : "只显示"}「${doc.chapter}」`}>
+                                {doc.chapter} · {doc.count}
+                              </button>
+                            );
+                          })}
+                          {selectedSearchChapters.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSearchChapters([])}
+                              style={{ border:"1px solid #8B735530", background:"#8B735510",
+                                color:"#8B7355", borderRadius:999, padding:"7px 15px",
+                                fontSize:15, lineHeight:1.25,
+                                fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
+                                cursor:"pointer" }}>
+                              清除选择
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -963,58 +1008,6 @@
                   <EmptyState title="未找到匹配结果" msg={`语料中未检索到「${q}」`} />
                 ) : searchResults ? (
                   <>
-                    {searchDocumentFilters.length > 0 && (
-                      <div style={{ marginBottom:18, padding:"14px 16px", background:"#FFFDF8",
-                        borderRadius:8, border:"1px solid #E8DCC8" }}>
-                        <div style={{ display:"flex", justifyContent:"space-between",
-                          alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
-                          <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
-                            color:"#8B7355", letterSpacing:"0.1em" }}>
-                            按文献筛选 · 未选择时显示全部
-                          </div>
-                          {selectedSearchChapters.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSearchChapters([])}
-                              style={{ border:"1px solid #C4956A30", background:"#C4956A10",
-                                color:"#8B7355", borderRadius:999, padding:"4px 10px",
-                                fontSize:10, fontFamily:"'JetBrains Mono',monospace",
-                                letterSpacing:"0.05em", cursor:"pointer" }}>
-                              清除选择
-                            </button>
-                          )}
-                        </div>
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                          {searchDocumentFilters.map(doc => {
-                            const active = selectedSearchChapterSet.has(doc.chapter);
-                            return (
-                              <button
-                                key={doc.chapter}
-                                type="button"
-                                onClick={() => toggleSearchChapterFilter(doc.chapter)}
-                                style={{
-                                  border:`1px solid ${active ? "#C4956A" : "#C4956A30"}`,
-                                  background: active ? "#C4956A33" : "#C4956A12",
-                                  color: active ? "#5D351F" : "#9A7658",
-                                  borderRadius:999,
-                                  padding:"5px 12px",
-                                  fontSize:11,
-                                  fontFamily:"'Noto Serif SC','JetBrains Mono',serif",
-                                  fontWeight: active ? 600 : 500,
-                                  letterSpacing:"0.03em",
-                                  cursor:"pointer",
-                                  boxShadow: active ? "0 1px 8px rgba(196,149,106,0.18)" : "none",
-                                  transition:"all 0.16s ease"
-                                }}
-                                title={`点击${active ? "取消筛选" : "只显示"}「${doc.chapter}」`}>
-                                {doc.chapter} · {doc.count}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Gardiner 符号频率（仅在 Gardiner 搜索时有意义） */}
                     {gardinerStats.length > 0 && visibleSearchResults.some(r => r.match_field === "search_gardiner") && (
                       <div style={{ marginBottom:20, padding:"14px 18px", background:"#F5F0E8",
