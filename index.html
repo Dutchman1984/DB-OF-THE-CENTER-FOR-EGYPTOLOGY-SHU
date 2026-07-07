@@ -395,11 +395,12 @@
     };
 
     const G = (name, ...docs) => ({ name, docs });
+    const D = (name, ...aliases) => ({ name, aliases });
     const DOCUMENT_CATEGORY_TREE = [
       { id:"econ", name:"经济文献", color:"#C4956A", subs:[
         { name:"土地清册文献", docs:["韦伯纸草"] },
         { name:"税收文献", docs:["加德纳86号陶石片","大英博物馆10447号纸草","古拉布纸草残片","古拉布G号纸草残片",
-          "毕尔盖石碑","卢浮宫皮革残片（节选）","哈里斯1号纸草（节选）","卢浮宫27151号纸草",
+          "毕尔盖石碑",D("卢浮宫皮革残片（节选）","卢浮皮革残片（节选）"),"哈里斯1号纸草（节选）","卢浮宫27151号纸草",
           "阿蒙最高祭司阿蒙霍特普的报酬（节选）","都灵2009+1999号纸草（节选）","都灵税表","都灵税收纸草","格里菲斯纸草残片（节选）"] },
         { name:"财产交易文献", groups:[
           G("（一）买卖契约","麦地那432号陶石片","都灵57173号陶石片","麦地那410号陶石片","皮特里14号陶石片",
@@ -417,13 +418,15 @@
           "麦地那112号陶石片","卢浮宫13156（2425）号陶石片","麦地那586号陶石片","瑙奈赫特的遗嘱","都灵2021号纸草",
           "柏林12636号纸草","加德纳272号陶石片","皮特里18号陶石片","都灵1885号纸草","都灵2070号纸草（节选）",
           "麦地那1086号陶石片","都灵57024号陶石片","麦地那673号陶石片","收养纸草","皮特里16号陶石片"] },
-        { name:"社会经济状况文献", docs:["卢浮宫3171号纸草（节选）","撒利尔纸草（第四卷）背面","亚眠纸草","瓦朗赛1号纸草","都灵罢工纸草（节选）"] },
+        { name:"社会经济状况文献", docs:[D("卢浮宫3171号纸草（节选）","卢浮3171纸草（节选）","卢浮 3171 纸草（节选）","卢浮宫3171纸草（节选）"),"撒利尔纸草（第四卷）背面","亚眠纸草","瓦朗赛1号纸草","都灵罢工纸草（节选）"] },
       ] },
       { id:"legal", name:"法律文献", color:"#7B9E87", subs:[
         { name:"法律条文", groups:[
-          G("（一）王室敕令","赫拉姆海布敕令","塞提一世瑙瑞敕令","塞提一世赫尔摩坡里斯敕令","塞提一世卡奈斯敕令（节选）",
-            "拉美西斯二世阿尔曼特敕令（节选）","塞提二世卡尔纳克敕令（节选）","拉美西斯三世的埃利芬提尼敕令"),
-          G("（二）自传体铭文","维吉尔莱克米尔（节选）","维吉尔帕塞尔（节选）")
+          G("（一）王室敕令","赫拉姆海布敕令",D("塞提一世瑙瑞敕令","塞提一世的瑙瑞敕令"),
+            D("塞提一世赫尔摩坡里斯敕令","赫尔摩坡里斯敕令"),D("塞提一世卡奈斯敕令（节选）","卡奈斯敕令（节选）"),
+            D("拉美西斯二世阿尔曼特敕令（节选）","阿尔曼特敕令（节选）"),D("塞提二世卡尔纳克敕令（节选）","卡纳克敕令（节选）","卡尔纳克敕令（节选）"),
+            D("拉美西斯三世的埃利芬提尼敕令","埃利芬提尼的石碑敕令","埃利芬提尼敕令")),
+          G("（二）自传体铭文",D("维吉尔莱克米尔（节选）","维吉尔的就职","维吉尔的职责"),D("维吉尔帕塞尔（节选）","维吉尔帕塞尔（Paser）（节选）"))
         ] },
         { name:"刑事", groups:[
           G("（一）颠覆国家政权","瑞福德纸草"),
@@ -530,6 +533,23 @@
       return out;
     }
 
+    function getTaxonomyDisplayName(item) {
+      return typeof item === "string" ? item : item.name;
+    }
+
+    function getTaxonomyLookupNames(item) {
+      if (typeof item === "string") return [item];
+      return [item.name, ...(item.aliases || [])];
+    }
+
+    function resolveTaxonomyItem(resolveChapter, corpusId, item) {
+      const taxonomyName = getTaxonomyDisplayName(item);
+      return uniqueDocs(getTaxonomyLookupNames(item).map(name => {
+        const chap = resolveChapter(corpusId, name);
+        return chap ? { ...chap, taxonomyName, matchedTaxonomyName:name } : null;
+      }).filter(Boolean));
+    }
+
     function getSubDocs(sub) {
       return sub.groups ? uniqueDocs(sub.groups.flatMap(g => g.docs)) : uniqueDocs(sub.docs || []);
     }
@@ -546,19 +566,19 @@
           if (sub.groups) {
             const groups = sub.groups.map(group => ({
               name: group.name,
-              docs: uniqueDocs(group.docs.map(name => {
-                const chap = resolveChapter(cat.id, name);
-                if (chap) matched.add(getDocumentKey(chap));
-                return chap ? { ...chap, taxonomyName: name } : null;
-              }).filter(Boolean))
+              docs: uniqueDocs(group.docs.flatMap(item => {
+                const docs = resolveTaxonomyItem(resolveChapter, cat.id, item);
+                docs.forEach(chap => matched.add(getDocumentKey(chap)));
+                return docs;
+              }))
             })).filter(group => group.docs.length > 0);
             return { name: sub.name, groups };
           }
-          const docs = uniqueDocs((sub.docs || []).map(name => {
-            const chap = resolveChapter(cat.id, name);
-            if (chap) matched.add(getDocumentKey(chap));
-            return chap ? { ...chap, taxonomyName: name } : null;
-          }).filter(Boolean));
+          const docs = uniqueDocs((sub.docs || []).flatMap(item => {
+            const docs = resolveTaxonomyItem(resolveChapter, cat.id, item);
+            docs.forEach(chap => matched.add(getDocumentKey(chap)));
+            return docs;
+          }));
           return { name: sub.name, docs };
         }).filter(sub => getSubDocs(sub).length > 0);
         return { ...cat, subs };
@@ -567,11 +587,16 @@
       return { tree, uncategorized };
     }
 
-    function selectionMatches(sel, level, catId = null, subIndex = null, groupIndex = null) {
-      return sel.level === level
+    function archiveSelectionKey(sel) {
+      return `${sel.level}|${sel.catId ?? ""}|${sel.subIndex ?? ""}|${sel.groupIndex ?? ""}`;
+    }
+
+    function selectionMatches(selections, level, catId = null, subIndex = null, groupIndex = null) {
+      const items = Array.isArray(selections) ? selections : [selections];
+      return items.some(sel => sel && sel.level === level
         && (catId === null || sel.catId === catId)
         && (subIndex === null || sel.subIndex === subIndex)
-        && (groupIndex === null || sel.groupIndex === groupIndex);
+        && (groupIndex === null || sel.groupIndex === groupIndex));
     }
 
     // ── 组件 ──
@@ -858,7 +883,7 @@
       );
     }
 
-    function CompactCategoryButton({ active, color, children, count, onClick, onToggle, expanded, hasToggle }) {
+    function CompactCategoryButton({ active, color, children, count, onClick }) {
       return (
         <span style={{ display:"inline-flex", alignItems:"center", gap:0 }}>
           <button
@@ -886,28 +911,6 @@
               </span>
             )}
           </button>
-          {hasToggle && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onToggle?.(e); }}
-              aria-label={expanded ? "收起" : "展开"}
-              style={{
-                marginLeft:-4,
-                border:"1px solid #E8DCC8",
-                background:"rgba(255,252,247,.78)",
-                color:"#A09080",
-                borderRadius:20,
-                width:24,
-                height:24,
-                fontSize:10,
-                lineHeight:"20px",
-                cursor:"pointer",
-                transform: expanded ? "rotate(90deg)" : "none",
-                transition:"transform .16s ease"
-              }}>
-              ▶
-            </button>
-          )}
         </span>
       );
     }
@@ -915,21 +918,25 @@
     function ArchiveCategoryIndex({
       tree,
       uncategorized,
-      selection,
-      expandedCats,
-      expandedSubs,
+      selections,
       archiveDocQuery,
       onQueryChange,
       onSelect,
-      onToggleCat,
-      onToggleSub,
       totalDocs,
       visibleDocs,
       breadcrumb
     }) {
-      const isCatOpen = id => expandedCats.includes(id);
-      const isSubOpen = key => expandedSubs.includes(key);
-      const allActive = selection.level === "all";
+      const selectedCatIds = new Set();
+      const selectedSubKeys = new Set();
+      selections.forEach(sel => {
+        if (sel.catId) selectedCatIds.add(sel.catId);
+        if (sel.level === "sub" || sel.level === "group") {
+          selectedSubKeys.add(`${sel.catId}:${sel.subIndex}`);
+        }
+      });
+      const isCatOpen = id => selectedCatIds.has(id);
+      const isSubOpen = key => selectedSubKeys.has(key);
+      const allActive = selections.length === 0;
 
       return (
         <div style={{
@@ -951,19 +958,16 @@
               {tree.map(cat => (
                 <CompactCategoryButton
                   key={cat.id}
-                  active={selectionMatches(selection, "cat", cat.id)}
+                  active={selectionMatches(selections, "cat", cat.id)}
                   color={cat.color}
                   count={getCatDocs(cat).length}
-                  hasToggle={cat.subs.length > 0}
-                  expanded={isCatOpen(cat.id)}
-                  onClick={() => onSelect({ level:"cat", catId:cat.id })}
-                  onToggle={() => onToggleCat(cat.id)}>
+                  onClick={() => onSelect({ level:"cat", catId:cat.id })}>
                   {cat.name}
                 </CompactCategoryButton>
               ))}
               {uncategorized.length > 0 && (
                 <CompactCategoryButton
-                  active={selectionMatches(selection, "uncategorized")}
+                  active={selectionMatches(selections, "uncategorized")}
                   count={uncategorized.length}
                   onClick={() => onSelect({ level:"uncategorized" })}>
                   待归类
@@ -995,17 +999,13 @@
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 {cat.subs.map((sub, subIndex) => {
                   const subKey = `${cat.id}:${subIndex}`;
-                  const hasGroups = !!sub.groups && sub.groups.length > 0;
                   return (
                     <CompactCategoryButton
                       key={subKey}
-                      active={selectionMatches(selection, "sub", cat.id, subIndex)}
+                      active={selectionMatches(selections, "sub", cat.id, subIndex)}
                       color={cat.color}
                       count={getSubDocs(sub).length}
-                      hasToggle={hasGroups}
-                      expanded={isSubOpen(subKey)}
-                      onClick={() => onSelect({ level:"sub", catId:cat.id, subIndex })}
-                      onToggle={() => onToggleSub(subKey)}>
+                      onClick={() => onSelect({ level:"sub", catId:cat.id, subIndex })}>
                       {sub.name}
                     </CompactCategoryButton>
                   );
@@ -1020,7 +1020,7 @@
                     {sub.groups.map((group, groupIndex) => (
                       <CompactCategoryButton
                         key={`${subKey}:${groupIndex}`}
-                        active={selectionMatches(selection, "group", cat.id, subIndex, groupIndex)}
+                        active={selectionMatches(selections, "group", cat.id, subIndex, groupIndex)}
                         color={cat.color}
                         count={group.docs.length}
                         onClick={() => onSelect({ level:"group", catId:cat.id, subIndex, groupIndex })}>
@@ -1059,9 +1059,7 @@
       const [selChapter, setSelChapter] = useState(null);
       const [chapterLines, setChapterLines] = useState([]);
       const [chapterLinesLoading, setChapterLinesLoading] = useState(false);
-      const [archiveSelection, setArchiveSelection] = useState({ level:"all" });
-      const [expandedArchiveCats, setExpandedArchiveCats] = useState([]);
-      const [expandedArchiveSubs, setExpandedArchiveSubs] = useState([]);
+      const [archiveSelections, setArchiveSelections] = useState([]);
       const [archiveDocQuery, setArchiveDocQuery] = useState("");
 
       // ── 搜索状态 ──
@@ -1307,60 +1305,85 @@
 
       const archiveCategoryData = useMemo(() => buildImportedCategoryTree(chapters), [chapters]);
 
-      const toggleArchiveCat = useCallback((catId) => {
-        setExpandedArchiveCats(prev =>
-          prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
-        );
-      }, []);
-
-      const toggleArchiveSub = useCallback((subKey) => {
-        setExpandedArchiveSubs(prev =>
-          prev.includes(subKey) ? prev.filter(key => key !== subKey) : [...prev, subKey]
-        );
-      }, []);
-
       const selectArchiveCategory = useCallback((selection) => {
-        setArchiveSelection(selection);
+        if (selection.level === "all") {
+          setArchiveSelections([]);
+          setArchiveDocQuery("");
+          return;
+        }
+        const nextKey = archiveSelectionKey(selection);
+        setArchiveSelections(prev => {
+          const exists = prev.some(item => archiveSelectionKey(item) === nextKey);
+          return exists
+            ? prev.filter(item => archiveSelectionKey(item) !== nextKey)
+            : [...prev, selection];
+        });
         setArchiveDocQuery("");
       }, []);
 
       const archiveListContext = useMemo(() => {
         const { tree, uncategorized } = archiveCategoryData;
         const groups = [];
+        const listed = new Set();
         let breadcrumb = ["全部文献"];
         const addGroup = (label, docs) => {
-          const unique = uniqueDocs(docs || []);
+          const unique = uniqueDocs(docs || []).filter(doc => {
+            const key = getDocumentKey(doc);
+            if (listed.has(key)) return false;
+            listed.add(key);
+            return true;
+          });
           if (unique.length > 0) groups.push({ label, docs: unique });
         };
+        const addSelection = (selection) => {
+          if (selection.level === "cat") {
+            const cat = tree.find(item => item.id === selection.catId);
+            if (cat) addGroup(cat.name, getCatDocs(cat));
+            return;
+          }
+          if (selection.level === "sub") {
+            const cat = tree.find(item => item.id === selection.catId);
+            const sub = cat?.subs?.[selection.subIndex];
+            if (cat && sub) addGroup(`${cat.name} · ${sub.name}`, getSubDocs(sub));
+            return;
+          }
+          if (selection.level === "group") {
+            const cat = tree.find(item => item.id === selection.catId);
+            const sub = cat?.subs?.[selection.subIndex];
+            const group = sub?.groups?.[selection.groupIndex];
+            if (cat && sub && group) addGroup(`${cat.name} · ${sub.name} · ${group.name}`, group.docs);
+            return;
+          }
+          if (selection.level === "uncategorized") {
+            addGroup("待归类", uncategorized);
+          }
+        };
+        const selectionPath = (selection) => {
+          if (selection.level === "cat") {
+            const cat = tree.find(item => item.id === selection.catId);
+            return cat ? ["全部文献", cat.name] : ["全部文献"];
+          }
+          if (selection.level === "sub") {
+            const cat = tree.find(item => item.id === selection.catId);
+            const sub = cat?.subs?.[selection.subIndex];
+            return cat && sub ? ["全部文献", cat.name, sub.name] : ["全部文献"];
+          }
+          if (selection.level === "group") {
+            const cat = tree.find(item => item.id === selection.catId);
+            const sub = cat?.subs?.[selection.subIndex];
+            const group = sub?.groups?.[selection.groupIndex];
+            return cat && sub && group ? ["全部文献", cat.name, sub.name, group.name] : ["全部文献"];
+          }
+          if (selection.level === "uncategorized") return ["全部文献", "待归类"];
+          return ["全部文献"];
+        };
 
-        if (archiveSelection.level === "cat") {
-          const cat = tree.find(item => item.id === archiveSelection.catId);
-          if (cat) {
-            breadcrumb = ["全部文献", cat.name];
-            cat.subs.forEach(sub => addGroup(sub.name, getSubDocs(sub)));
-          }
-        } else if (archiveSelection.level === "sub") {
-          const cat = tree.find(item => item.id === archiveSelection.catId);
-          const sub = cat?.subs?.[archiveSelection.subIndex];
-          if (cat && sub) {
-            breadcrumb = ["全部文献", cat.name, sub.name];
-            if (sub.groups) sub.groups.forEach(group => addGroup(group.name, group.docs));
-            else addGroup(sub.name, sub.docs);
-          }
-        } else if (archiveSelection.level === "group") {
-          const cat = tree.find(item => item.id === archiveSelection.catId);
-          const sub = cat?.subs?.[archiveSelection.subIndex];
-          const group = sub?.groups?.[archiveSelection.groupIndex];
-          if (cat && sub && group) {
-            breadcrumb = ["全部文献", cat.name, sub.name, group.name];
-            addGroup(group.name, group.docs);
-          }
-        } else if (archiveSelection.level === "uncategorized") {
-          breadcrumb = ["全部文献", "待归类"];
-          addGroup("待归类", uncategorized);
-        } else {
+        if (archiveSelections.length === 0) {
           tree.forEach(cat => addGroup(cat.name, getCatDocs(cat)));
           if (uncategorized.length > 0) addGroup("待归类", uncategorized);
+        } else {
+          breadcrumb = archiveSelections.length === 1 ? selectionPath(archiveSelections[0]) : ["全部文献", `已选择 ${archiveSelections.length} 个分类`];
+          archiveSelections.forEach(addSelection);
         }
 
         const keyword = archiveDocQuery.trim();
@@ -1378,7 +1401,7 @@
           breadcrumb,
           visibleDocs: uniqueDocs(filteredGroups.flatMap(group => group.docs))
         };
-      }, [archiveCategoryData, archiveSelection, archiveDocQuery]);
+      }, [archiveCategoryData, archiveSelections, archiveDocQuery]);
 
       const selectedSearchChapterSet = useMemo(
         () => new Set(selectedSearchChapters),
@@ -1699,14 +1722,10 @@
                         <ArchiveCategoryIndex
                           tree={archiveCategoryData.tree}
                           uncategorized={archiveCategoryData.uncategorized}
-                          selection={archiveSelection}
-                          expandedCats={expandedArchiveCats}
-                          expandedSubs={expandedArchiveSubs}
+                          selections={archiveSelections}
                           archiveDocQuery={archiveDocQuery}
                           onQueryChange={setArchiveDocQuery}
                           onSelect={selectArchiveCategory}
-                          onToggleCat={toggleArchiveCat}
-                          onToggleSub={toggleArchiveSub}
                           totalDocs={chapters.length}
                           visibleDocs={archiveListContext.visibleDocs}
                           breadcrumb={archiveListContext.breadcrumb}
@@ -1717,7 +1736,7 @@
                         ) : (
                           archiveListContext.groups.map((group, groupIndex) => (
                             <div key={group.label}>
-                              {(archiveListContext.groups.length > 1 || archiveSelection.level !== "group") && (
+                              {archiveListContext.groups.length > 1 && (
                                 <div style={{ ...S.section, marginTop: groupIndex === 0 ? 14 : 20 }}>
                                   {group.label}（{group.docs.length} 篇）
                                 </div>
