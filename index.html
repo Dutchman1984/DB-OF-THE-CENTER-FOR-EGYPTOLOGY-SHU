@@ -591,6 +591,31 @@
       return `${sel.level}|${sel.catId ?? ""}|${sel.subIndex ?? ""}|${sel.groupIndex ?? ""}`;
     }
 
+    function updateArchiveSelections(previous, selection) {
+      const nextKey = archiveSelectionKey(selection);
+      const exists = previous.some(item => archiveSelectionKey(item) === nextKey);
+      if (exists) return previous.filter(item => archiveSelectionKey(item) !== nextKey);
+
+      const compatible = previous.filter(item => {
+        if (!selection.catId || item.catId !== selection.catId) return true;
+
+        // A selected parent would make a narrower child filter appear ineffective.
+        // Keep selections from other branches, but replace ancestors/descendants
+        // on the branch currently being refined.
+        if (selection.level === "cat") return false;
+        if (item.level === "cat") return false;
+        if (selection.level === "sub") {
+          return !(item.level === "group" && item.subIndex === selection.subIndex);
+        }
+        if (selection.level === "group") {
+          return !(item.level === "sub" && item.subIndex === selection.subIndex);
+        }
+        return true;
+      });
+
+      return [...compatible, selection];
+    }
+
     function selectionMatches(selections, level, catId = null, subIndex = null, groupIndex = null) {
       const items = Array.isArray(selections) ? selections : [selections];
       return items.some(sel => sel && sel.level === level
@@ -1319,13 +1344,7 @@
           setArchiveDocQuery("");
           return;
         }
-        const nextKey = archiveSelectionKey(selection);
-        setArchiveSelections(prev => {
-          const exists = prev.some(item => archiveSelectionKey(item) === nextKey);
-          return exists
-            ? prev.filter(item => archiveSelectionKey(item) !== nextKey)
-            : [...prev, selection];
-        });
+        setArchiveSelections(prev => updateArchiveSelections(prev, selection));
         setArchiveDocQuery("");
       }, []);
 
