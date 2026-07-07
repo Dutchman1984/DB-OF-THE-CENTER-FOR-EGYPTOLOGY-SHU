@@ -1033,9 +1033,9 @@
                             <div>
                               <h3 style={{ fontSize:22, fontWeight:600, margin:"0 0 10px",
                                 color:"#3D261A", fontFamily:"'Noto Serif SC',serif" }}>{chap.chapter}</h3>
-                              <div style={{ fontFamily:"'JetBrains Mono',monospace",
-                                fontSize:11, color:"#8B7355", letterSpacing:"0.04em" }}>
-                                {chap.sources.length} 个来源文件 · {chap.sections.length} 个小节
+                              <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                                <span style={S.tag("#C4956A")}>{chap.sources.length} 个来源文件</span>
+                                <span style={S.tag("#7B9E87")}>{chap.sections.length} 个小节</span>
                               </div>
                             </div>
                             <div style={{ textAlign:"right", flexShrink:0 }}>
