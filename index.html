@@ -482,19 +482,38 @@
         .replace(/—/g, "");
     }
 
+    const LITERARY_DOCUMENT_NAMES = new Set(["温阿蒙历险记", "遭受厄运的王子"]);
+
+    function inferDocumentCorpus(chapter, sources = [], notes = []) {
+      if (LITERARY_DOCUMENT_NAMES.has(chapter)) return "lit";
+      const sourceText = (Array.isArray(sources) ? sources : [sources]).join(" ");
+      const notesText = (Array.isArray(notes) ? notes : [notes]).join(" ");
+      if (/\bCA-ECON-v1\b/.test(notesText) || /\bE\d{2}[-_]/i.test(sourceText)) return "econ";
+      if (/^\s*\d+-\d+/.test(sourceText) || /法律/.test(sourceText) || /\bCA-LEGAL\b/i.test(notesText)) return "legal";
+      if (/经济|ECON/i.test(sourceText) || /经济|ECON/i.test(notesText)) return "econ";
+      if (/文学|温阿蒙|王子/.test(sourceText) || /文学|温阿蒙|王子/.test(notesText)) return "lit";
+      return "unknown";
+    }
+
+    function getDocumentKey(doc) {
+      return `${doc?.corpusId || "unknown"}|||${doc?.chapter || ""}`;
+    }
+
     function createChapterResolver(chapters) {
       const exact = new Map();
       const normalized = new Map();
       chapters.forEach(chap => {
         if (!chap.chapter) return;
-        exact.set(chap.chapter, chap);
-        const key = normalizeDocumentName(chap.chapter);
+        const corpusId = chap.corpusId || "unknown";
+        exact.set(`${corpusId}|||${chap.chapter}`, chap);
+        const key = `${corpusId}|||${normalizeDocumentName(chap.chapter)}`;
         if (!normalized.has(key)) normalized.set(key, []);
         normalized.get(key).push(chap);
       });
-      return (name) => {
-        if (exact.has(name)) return exact.get(name);
-        const matches = normalized.get(normalizeDocumentName(name)) || [];
+      return (corpusId, name) => {
+        const exactKey = `${corpusId}|||${name}`;
+        if (exact.has(exactKey)) return exact.get(exactKey);
+        const matches = normalized.get(`${corpusId}|||${normalizeDocumentName(name)}`) || [];
         return matches.length === 1 ? matches[0] : null;
       };
     }
@@ -503,8 +522,9 @@
       const seen = new Set();
       const out = [];
       docs.forEach(doc => {
-        if (!doc || seen.has(doc.chapter)) return;
-        seen.add(doc.chapter);
+        const key = getDocumentKey(doc);
+        if (!doc || seen.has(key)) return;
+        seen.add(key);
         out.push(doc);
       });
       return out;
@@ -527,23 +547,23 @@
             const groups = sub.groups.map(group => ({
               name: group.name,
               docs: uniqueDocs(group.docs.map(name => {
-                const chap = resolveChapter(name);
-                if (chap) matched.add(chap.chapter);
+                const chap = resolveChapter(cat.id, name);
+                if (chap) matched.add(getDocumentKey(chap));
                 return chap ? { ...chap, taxonomyName: name } : null;
               }).filter(Boolean))
             })).filter(group => group.docs.length > 0);
             return { name: sub.name, groups };
           }
           const docs = uniqueDocs((sub.docs || []).map(name => {
-            const chap = resolveChapter(name);
-            if (chap) matched.add(chap.chapter);
+            const chap = resolveChapter(cat.id, name);
+            if (chap) matched.add(getDocumentKey(chap));
             return chap ? { ...chap, taxonomyName: name } : null;
           }).filter(Boolean));
           return { name: sub.name, docs };
         }).filter(sub => getSubDocs(sub).length > 0);
         return { ...cat, subs };
       }).filter(cat => getCatDocs(cat).length > 0);
-      const uncategorized = chapters.filter(chap => !matched.has(chap.chapter));
+      const uncategorized = chapters.filter(chap => !matched.has(getDocumentKey(chap)));
       return { tree, uncategorized };
     }
 
@@ -738,7 +758,7 @@
               {row.chapter && (
                 <button
                   type="button"
-                  onClick={() => onOpenChapter && onOpenChapter(row.chapter)}
+                  onClick={() => onOpenChapter && onOpenChapter(row)}
                   title={`打开「${row.chapter}」文献页`}
                   style={{ ...S.tag("#C4956A"), appearance:"none", cursor:"pointer" }}>
                   {row.chapter}
@@ -783,7 +803,7 @@
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenChapter && onOpenChapter(row.chapter);
+                    onOpenChapter && onOpenChapter(row);
                   }}
                   title={`打开「${row.chapter}」文献页`}
                   style={{ ...S.tag("#C4956A"), appearance:"none", cursor:"pointer" }}>
@@ -1068,7 +1088,7 @@
           try {
             // 获取所有行并在前端聚合章节信息
             const data = await fetchAllRows("alignments", {
-              select: "chapter,section,source_file",
+              select: "chapter,section,source_file,notes",
             });
             // 聚合成章节列表
             const chapMap = {};
@@ -1078,14 +1098,16 @@
               const chapter = row.chapter || "未命名文献";
               const section = row.section || "未分类";
               const sourceFile = row.source_file || "未标注文献源";
-              if (!chapMap[chapter]) {
-                chapMap[chapter] = { chapter, sections: new Set(), sources: new Set(), count: 0 };
+              const corpusId = inferDocumentCorpus(chapter, [sourceFile], [row.notes || ""]);
+              const chapterKey = `${corpusId}|||${chapter}`;
+              if (!chapMap[chapterKey]) {
+                chapMap[chapterKey] = { chapter, corpusId, sections: new Set(), sources: new Set(), count: 0 };
               }
-              chapMap[chapter].sections.add(section);
-              chapMap[chapter].sources.add(sourceFile);
-              chapMap[chapter].count++;
+              chapMap[chapterKey].sections.add(section);
+              chapMap[chapterKey].sources.add(sourceFile);
+              chapMap[chapterKey].count++;
               sourceFiles.add(sourceFile);
-              sectionKeys.add(`${chapter}|||${section}`);
+              sectionKeys.add(`${chapterKey}|||${section}`);
             });
             const chapList = Object.values(chapMap).map(c => ({
               ...c,
@@ -1166,8 +1188,10 @@
       const openChapter = useCallback(async (chap) => {
         pushCurrentView();
         const chapterName = chap.chapter || "未命名文献";
+        const corpusId = chap.corpusId || "unknown";
         setSelChapter({
           chapter: chapterName,
+          corpusId,
           count: chap.count || 0,
           sources: chap.sources || [],
           sections: chap.sections || []
@@ -1182,12 +1206,17 @@
             filters: { chapter: chapterName },
             order: "source_file.asc,physical_line.asc"
           });
-          setChapterLines(data);
-          const sources = [...new Set(data.map(row => row.source_file || "未标注文献源"))]
+          const scopedData = corpusId === "unknown"
+            ? data
+            : data.filter(row =>
+                inferDocumentCorpus(row.chapter || chapterName, [row.source_file || ""], [row.notes || ""]) === corpusId
+              );
+          setChapterLines(scopedData);
+          const sources = [...new Set(scopedData.map(row => row.source_file || "未标注文献源"))]
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-          const sections = [...new Set(data.map(row => row.section || "未分类"))]
+          const sections = [...new Set(scopedData.map(row => row.section || "未分类"))]
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-          setSelChapter({ chapter: chapterName, count: data.length, sources, sections });
+          setSelChapter({ chapter: chapterName, corpusId, count: scopedData.length, sources, sections });
         } catch (e) {
           console.error("Failed to load chapter lines:", e);
         }
@@ -1195,10 +1224,17 @@
         requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
       }, [pushCurrentView]);
 
-      const openChapterByName = useCallback((chapterName) => {
+      const openChapterByName = useCallback((chapterRef) => {
+        const chapterName = typeof chapterRef === "string" ? chapterRef : chapterRef?.chapter;
         if (!chapterName) return;
-        const chap = chapters.find(item => item.chapter === chapterName) || {
+        const inferredCorpus = typeof chapterRef === "string"
+          ? null
+          : inferDocumentCorpus(chapterName, [chapterRef.source_file || ""], [chapterRef.notes || ""]);
+        const chap = chapters.find(item => item.chapter === chapterName && (!inferredCorpus || item.corpusId === inferredCorpus))
+          || chapters.find(item => item.chapter === chapterName)
+          || {
           chapter: chapterName,
+          corpusId: inferredCorpus || "unknown",
           count: 0,
           sources: [],
           sections: []
@@ -1355,10 +1391,12 @@
         const docMap = new Map();
         searchResults.forEach((row, idx) => {
           const chapter = row.chapter || "未命名文献";
-          if (!docMap.has(chapter)) {
-            docMap.set(chapter, { chapter, count: 0, firstIndex: idx });
+          const corpusId = inferDocumentCorpus(chapter, [row.source_file || ""], [row.notes || ""]);
+          const key = `${corpusId}|||${chapter}`;
+          if (!docMap.has(key)) {
+            docMap.set(key, { key, chapter, corpusId, count: 0, firstIndex: idx });
           }
-          docMap.get(chapter).count++;
+          docMap.get(key).count++;
         });
         return [...docMap.values()].sort((a, b) =>
           b.count - a.count || a.firstIndex - b.firstIndex
@@ -1368,16 +1406,18 @@
       const visibleSearchResults = useMemo(() => {
         if (!searchResults) return null;
         if (selectedSearchChapters.length === 0) return searchResults;
-        return searchResults.filter(row =>
-          selectedSearchChapterSet.has(row.chapter || "未命名文献")
-        );
+        return searchResults.filter(row => {
+          const chapter = row.chapter || "未命名文献";
+          const corpusId = inferDocumentCorpus(chapter, [row.source_file || ""], [row.notes || ""]);
+          return selectedSearchChapterSet.has(`${corpusId}|||${chapter}`);
+        });
       }, [searchResults, selectedSearchChapters.length, selectedSearchChapterSet]);
 
-      const toggleSearchChapterFilter = useCallback((chapter) => {
+      const toggleSearchChapterFilter = useCallback((chapterKey) => {
         setSelectedSearchChapters(prev =>
-          prev.includes(chapter)
-            ? prev.filter(item => item !== chapter)
-            : [...prev, chapter]
+          prev.includes(chapterKey)
+            ? prev.filter(item => item !== chapterKey)
+            : [...prev, chapterKey]
         );
       }, []);
 
@@ -1491,12 +1531,12 @@
                       {searchDocumentFilters.length > 0 && (
                         <div style={{ display:"flex", flexWrap:"wrap", gap:9, marginTop:12 }}>
                           {searchDocumentFilters.map(doc => {
-                            const active = selectedSearchChapterSet.has(doc.chapter);
+                            const active = selectedSearchChapterSet.has(doc.key);
                             return (
                               <button
-                                key={doc.chapter}
+                                key={doc.key}
                                 type="button"
-                                onClick={() => toggleSearchChapterFilter(doc.chapter)}
+                                onClick={() => toggleSearchChapterFilter(doc.key)}
                                 style={{
                                   border:`1px solid ${active ? "#C4956A" : "#C4956A35"}`,
                                   background: active ? "#C4956A40" : "#C4956A14",
@@ -1683,7 +1723,7 @@
                                 </div>
                               )}
                               {group.docs.map((chap, idx) => (
-                                <div key={`${group.label}-${chap.chapter}`} className="card-anim hover-card"
+                                <div key={`${group.label}-${getDocumentKey(chap)}`} className="card-anim hover-card"
                                   style={{ background:"#FFFCF7", border:"1px solid #E8DCC8",
                                     borderRadius:8, padding:"18px 22px", marginBottom:12,
                                     cursor:"pointer", animationDelay:`${Math.min(idx, 10) * 0.035}s` }}
