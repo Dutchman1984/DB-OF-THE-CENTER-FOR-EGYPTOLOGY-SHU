@@ -61,8 +61,17 @@
     }
     .search-input:focus { border-color: #C4956A; box-shadow: 0 0 0 3px rgba(196,149,106,0.12); }
     .match-hl { background: #C4956A22; padding: 1px 3px; border-radius: 2px; color: #8B4513; }
+    :root {
+      --corpus-translit-size: 14px;
+      --corpus-translit-line-height: 1.75;
+      --corpus-hiero-height: clamp(26px, 2.2vw, 34px);
+    }
     .egyptological-transliteration {
       font-family: 'GentiumCorpus', 'Gentium Plus', 'Noto Serif', 'Times New Roman', serif;
+      font-size: var(--corpus-translit-size);
+      line-height: var(--corpus-translit-line-height);
+      color: #5D4037;
+      font-style: italic;
       font-variant-ligatures: none;
       text-rendering: optimizeLegibility;
     }
@@ -70,9 +79,11 @@
       background: #FFFDF8; border: 1px solid #E8DCC8; border-radius: 8px;
       padding: 16px 20px; min-height: 50px; overflow-x: auto;
     }
-    .hiero-render-area svg { display: inline-block; vertical-align: middle; margin: 2px 0; }
-    .hiero-render-area > svg {
-      height: clamp(26px, 2.2vw, 34px) !important;
+    .hiero-render-area svg {
+      display: inline-block;
+      vertical-align: middle;
+      margin: 2px 0;
+      height: var(--corpus-hiero-height) !important;
       width: auto !important;
       max-width: none;
     }
@@ -82,7 +93,7 @@
     }
     .hiero-render-area .official-hieroglyph-svg {
       display: block;
-      height: clamp(26px, 2.2vw, 34px);
+      height: var(--corpus-hiero-height);
       width: auto;
       max-width: none;
       object-fit: contain;
@@ -248,6 +259,9 @@
       else if (node.attributes) node.attributes[name] = value;
     }
 
+    const HIERO_SHADE_FILL = "#CFC8BF";
+    const HIERO_SHADE_OPACITY = "0.55";
+
     function applyHieroglyphicSvgEnhancements(root) {
       const svgs = [];
       walkSvgTree(root, node => {
@@ -261,14 +275,16 @@
           const fill = getSvgAttr(node, "fill") || "";
           const isShade = /fill\s*:\s*rgb\(100,\s*100,\s*100\)/i.test(style)
             || /rgb\(100,\s*100,\s*100\)/i.test(fill)
+            || /^#(?:646464|666666|808080)$/i.test(fill.trim())
+            || /gray|grey/i.test(fill)
             || getSvgAttr(node, "data-jsesh-shade");
           if (isShade) shadeRects.push(node);
         });
         shadeRects.forEach(node => {
           const parent = node.parentNode;
           if (parent && parent.firstChild !== node) parent.insertBefore(node, parent.firstChild);
-          setSvgAttr(node, "fill", "#CFC8BF");
-          setSvgAttr(node, "style", "fill:#CFC8BF;opacity:0.55;stroke:none");
+          setSvgAttr(node, "fill", HIERO_SHADE_FILL);
+          setSvgAttr(node, "style", `fill:${HIERO_SHADE_FILL};opacity:${HIERO_SHADE_OPACITY};stroke:none;pointer-events:none`);
           setSvgAttr(node, "data-jsesh-shade", "true");
         });
       });
@@ -857,8 +873,7 @@
             <div style={{ fontSize:18, lineHeight:1.85, color:"#2C1810", marginBottom:10 }}>
               {row.translation_zh}
             </div>
-            <div className="egyptological-transliteration" style={{ fontSize:13, color:"#5D4037",
-              lineHeight:1.7, fontStyle:"italic" }}>
+            <div className="egyptological-transliteration">
               {row.transliteration}
             </div>
           </div>
@@ -916,8 +931,7 @@
           </div>
 
           {/* 拉丁转写（始终显示） */}
-          <div className="egyptological-transliteration" style={{ fontSize:13, color:"#5D4037",
-            lineHeight:1.7, fontStyle:"italic" }}>
+          <div className="egyptological-transliteration">
             {row.transliteration}
           </div>
 
