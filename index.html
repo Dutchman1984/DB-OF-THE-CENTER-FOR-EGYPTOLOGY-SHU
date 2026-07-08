@@ -24,6 +24,34 @@
       from { opacity: 0; transform: translateY(12px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    @font-face {
+      font-family: 'GentiumCorpus';
+      src: url('fonts/gentium/Gentium-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'GentiumCorpus';
+      src: url('fonts/gentium/Gentium-Italic.woff2') format('woff2');
+      font-weight: 400;
+      font-style: italic;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'GentiumCorpus';
+      src: url('fonts/gentium/Gentium-Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'GentiumCorpus';
+      src: url('fonts/gentium/Gentium-BoldItalic.woff2') format('woff2');
+      font-weight: 700;
+      font-style: italic;
+      font-display: swap;
+    }
     .card-anim { animation: fadeInUp 0.3s ease both; }
     .hover-card { transition: all 0.2s ease; }
     .hover-card:hover {
@@ -34,14 +62,20 @@
     .search-input:focus { border-color: #C4956A; box-shadow: 0 0 0 3px rgba(196,149,106,0.12); }
     .match-hl { background: #C4956A22; padding: 1px 3px; border-radius: 2px; color: #8B4513; }
     .egyptological-transliteration {
-      font-family: 'Noto Serif', 'Noto Serif SC', 'Times New Roman', serif;
+      font-family: 'GentiumCorpus', 'Gentium Plus', 'Noto Serif', 'Times New Roman', serif;
       font-variant-ligatures: none;
+      text-rendering: optimizeLegibility;
     }
     .hiero-render-area {
       background: #FFFDF8; border: 1px solid #E8DCC8; border-radius: 8px;
       padding: 16px 20px; min-height: 50px; overflow-x: auto;
     }
     .hiero-render-area svg { display: inline-block; vertical-align: middle; margin: 2px 0; }
+    .hiero-render-area > svg {
+      height: clamp(26px, 2.2vw, 34px) !important;
+      width: auto !important;
+      max-width: none;
+    }
     .official-hieroglyph-area {
       padding: 8px 12px;
       min-height: 42px;
