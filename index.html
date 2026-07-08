@@ -326,12 +326,14 @@
     function HieroglyphView({ svgPath, mdc, gardiner }) {
       const containerRef = useRef(null);
       const [status, setStatus] = useState("idle");
-      const [officialFailed, setOfficialFailed] = useState(false);
+      const [svgRetry, setSvgRetry] = useState(0);
+      const MAX_SVG_RETRIES = 2;
 
-      useEffect(() => setOfficialFailed(false), [svgPath]);
+      useEffect(() => setSvgRetry(0), [svgPath]);
 
+      // JSesh 实时渲染：仅在无官方 SVG 路径时才允许降级
       useEffect(() => {
-        if (svgPath && !officialFailed) return;
+        if (svgPath) return;
         if (!containerRef.current || (!mdc && !gardiner) || !jseshLib) return;
         const el = containerRef.current;
         let cancelled = false;
@@ -374,20 +376,40 @@
         })();
 
         return () => { cancelled = true; };
-      }, [svgPath, officialFailed, mdc, gardiner]);
+      }, [svgPath, mdc, gardiner]);
 
-      if (svgPath && !officialFailed) {
+      // 有官方 SVG → 始终使用，加载失败时重试，绝不降级到 JSesh
+      if (svgPath) {
+        const imgUrl = svgRetry > 0
+          ? storageObjectUrl(svgPath) + "?r=" + svgRetry
+          : storageObjectUrl(svgPath);
+        const stillRetrying = svgRetry > 0 && svgRetry <= MAX_SVG_RETRIES;
         return (
           <div className="hiero-render-area official-hieroglyph-area">
-            <img className="official-hieroglyph-svg"
-              src={storageObjectUrl(svgPath)}
+            {stillRetrying && (
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0",
+                fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:"#8B7355" }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background:"#C4956A",
+                  animation:"corpusSpin 0.8s linear infinite" }} />
+                象形文字加载中...
+              </div>
+            )}
+            <img key={svgRetry}
+              className="official-hieroglyph-svg"
+              src={imgUrl}
               alt="JSesh official SVG hieroglyphic line"
-              loading="lazy" decoding="async"
-              onError={() => setOfficialFailed(true)} />
+              decoding="async"
+              style={stillRetrying ? { display:"none" } : {}}
+              onError={() => {
+                if (svgRetry < MAX_SVG_RETRIES) {
+                  setSvgRetry(c => c + 1);
+                }
+              }} />
           </div>
         );
       }
 
+      // 无 svgPath → JSesh 实时渲染（保留原逻辑）
       if (!jseshLib) {
         return <div className="hiero-error">JSesh 渲染引擎未加载 — 请确保 jsesh.umd.js 和 images/glyphs/ 目录已部署</div>;
       }
