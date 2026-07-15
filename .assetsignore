@@ -1,0 +1,12 @@
+**/.git
+**/.DS_Store
+**/node_modules
+**/.wrangler
+.assetsignore
+.gitignore
+supabase
+jsesh-node-smoke-test.js
+jsesh-smoke-test.html
+start-local-server.bat
+start-local-server.sh
+wrangler.jsonc

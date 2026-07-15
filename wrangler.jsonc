@@ -1,6 +1,14 @@
 {
   "name": "corpus-aegyptiacum",
   "compatibility_date": "2026-07-08",
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "shu-egyptology-db.site",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": "."
   }
