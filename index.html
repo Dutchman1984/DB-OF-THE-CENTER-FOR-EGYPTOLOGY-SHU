@@ -618,10 +618,42 @@
         .replace(/—/g, "");
     }
 
+    function buildTaxonomyCorpusLookup() {
+      const candidates = new Map();
+      const addItem = (corpusId, item) => {
+        const names = typeof item === "string"
+          ? [item]
+          : [item.name, ...(item.aliases || [])];
+        names.forEach(name => {
+          const key = normalizeDocumentName(name);
+          if (!key) return;
+          if (!candidates.has(key)) candidates.set(key, new Set());
+          candidates.get(key).add(corpusId);
+        });
+      };
+      DOCUMENT_CATEGORY_TREE.forEach(cat => {
+        (cat.subs || []).forEach(sub => {
+          if (sub.groups) {
+            sub.groups.forEach(group => (group.docs || []).forEach(item => addItem(cat.id, item)));
+          } else {
+            (sub.docs || []).forEach(item => addItem(cat.id, item));
+          }
+        });
+      });
+      return new Map([...candidates.entries()]
+        .filter(([, corpusIds]) => corpusIds.size === 1)
+        .map(([name, corpusIds]) => [name, [...corpusIds][0]]));
+    }
+
+    const DOCUMENT_CORPUS_BY_TAXONOMY_NAME = buildTaxonomyCorpusLookup();
+    window.DOCUMENT_CORPUS_BY_TAXONOMY_NAME = DOCUMENT_CORPUS_BY_TAXONOMY_NAME;
+
     const LITERARY_DOCUMENT_NAMES = new Set(["温阿蒙历险记", "遭受厄运的王子"]);
 
     function inferDocumentCorpus(chapter, sources = [], notes = []) {
       if (LITERARY_DOCUMENT_NAMES.has(chapter)) return "lit";
+      const taxonomyCorpus = DOCUMENT_CORPUS_BY_TAXONOMY_NAME.get(normalizeDocumentName(chapter));
+      if (taxonomyCorpus) return taxonomyCorpus;
       const sourceText = (Array.isArray(sources) ? sources : [sources]).join(" ");
       const notesText = (Array.isArray(notes) ? notes : [notes]).join(" ");
       if (/\bCA-ECON-v1\b/.test(notesText) || /\bE\d{2}[-_]/i.test(sourceText)) return "econ";
@@ -837,6 +869,9 @@
       const provenanceText = provenance || legacyMetadata;
       const sourceAnnotations = Array.isArray(annotationMeta) ? annotationMeta : [];
       if (!humanNotes && !provenanceText) return null;
+      const humanNoteLines = humanNotes
+        ? humanNotes.split(/\s*(?=[①-⑳㉑-㉟㊱-㊿])/u).map(item => item.trim()).filter(Boolean)
+        : [];
 
       const parts = provenanceText ? provenanceText.split("|") : [];
       const metadata = { source_line_id: parts[1] || "" };
@@ -867,8 +902,14 @@
           {humanNotes && (
             <>
               <div style={S.section}>注释</div>
-              <div style={{ fontSize:14, color:"#5D4037", lineHeight:1.85,
-                whiteSpace:"pre-line" }}>{humanNotes}</div>
+              <div style={{ fontSize:11, color:"#5D4037", lineHeight:1.75 }}>
+                {humanNoteLines.map((line, index) => (
+                  <div key={`${index}-${line.slice(0, 12)}`}
+                    style={{ whiteSpace:"pre-line", marginTop:index === 0 ? 0 : 5 }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
               {sourceAnnotations.length > 0 && (
                 <details style={{ marginTop:10 }}>
                   <summary style={{ fontSize:10, color:"#A09080", cursor:"pointer" }}>
