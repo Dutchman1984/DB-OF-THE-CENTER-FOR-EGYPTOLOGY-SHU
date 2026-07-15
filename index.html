@@ -113,8 +113,8 @@
     // ═══════════════════════════════════════════════════════════
     // ██  在此填入你的 Supabase 配置（anon key，不是 service_role）
     // ═══════════════════════════════════════════════════════════
-    const SUPABASE_URL  = "https://api.shu-egyptology-db.site";
-    const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaXNxZWl0YW94bGtxcmF0aXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjYxMTcsImV4cCI6MjA5MjU0MjExN30.Eoz9MGwtdkDY2IYh1bv3Dk4UYZk-kCXBWXPtzfA4XzQ";
+    const SUPABASE_URL  = window.CORPUS_SUPABASE_URL || "https://api.shu-egyptology-db.site";
+    const SUPABASE_KEY  = window.CORPUS_SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaXNxZWl0YW94bGtxcmF0aXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjYxMTcsImV4cCI6MjA5MjU0MjExN30.Eoz9MGwtdkDY2IYh1bv3Dk4UYZk-kCXBWXPtzfA4XzQ";
     const HIEROGLYPH_ASSET_BASE = window.CORPUS_HIEROGLYPH_ASSET_BASE
       || `${SUPABASE_URL}/storage/v1/object/public/hieroglyph-render`;
     // ═══════════════════════════════════════════════════════════
@@ -327,9 +327,13 @@
       const containerRef = useRef(null);
       const [status, setStatus] = useState("idle");
       const [svgRetry, setSvgRetry] = useState(0);
+      const [svgFailed, setSvgFailed] = useState(false);
       const MAX_SVG_RETRIES = 2;
 
-      useEffect(() => setSvgRetry(0), [svgPath]);
+      useEffect(() => {
+        setSvgRetry(0);
+        setSvgFailed(false);
+      }, [svgPath]);
 
       // JSesh 实时渲染：仅在无官方 SVG 路径时才允许降级
       useEffect(() => {
@@ -380,6 +384,20 @@
 
       // 有官方 SVG → 始终使用，加载失败时重试，绝不降级到 JSesh
       if (svgPath) {
+        if (svgFailed) {
+          return (
+            <div className="hiero-render-area official-hieroglyph-area">
+              <div className="hiero-error">
+                官方象形文字 SVG 加载失败（已重试 {MAX_SVG_RETRIES} 次）；为避免错误方向或版式，本行不降级渲染。
+                <button type="button" onClick={() => { setSvgRetry(0); setSvgFailed(false); }}
+                  style={{ marginLeft:10, border:"1px solid #B71C1C", borderRadius:4,
+                    background:"#FFF", color:"#B71C1C", padding:"3px 8px", cursor:"pointer" }}>
+                  重试官方 SVG
+                </button>
+              </div>
+            </div>
+          );
+        }
         const imgUrl = svgRetry > 0
           ? storageObjectUrl(svgPath) + "?r=" + svgRetry
           : storageObjectUrl(svgPath);
@@ -403,6 +421,8 @@
               onError={() => {
                 if (svgRetry < MAX_SVG_RETRIES) {
                   setSvgRetry(c => c + 1);
+                } else {
+                  setSvgFailed(true);
                 }
               }} />
           </div>
@@ -543,6 +563,47 @@
         { name:"独立篇目", docs:["温阿蒙历险记","遭受厄运的王子"] },
       ] },
     ];
+
+    // Round63 release taxonomy additions. These are category assignments, not
+    // title rewrites or assertions that differently numbered objects are identical.
+    const ROUND63_LEGAL_TAXONOMY_ADDITIONS = [
+      { sub:"民事", group:"（二）买卖", docs:["伽丁内尔号68陶石片","麦地那410号纸草"] },
+      { sub:"民事", group:"（三）租赁", docs:["伽丁内尔140号陶石片","密查埃利德斯5号陶石片"] },
+      { sub:"民事", group:"（四）民事纠纷", docs:[
+        "伽丁内尔104号陶石片","伽丁内尔112号陶石片","伽丁内尔165号陶石片",
+        "伽丁内尔53号陶石片","伽丁内尔54号陶石片",
+        "开罗25,725号陶石片+卢浮宫3258号陶石片","开罗25号陶石片","开罗JdE 65739号纸草",
+        "柏林12630陶石片","柏林14214陶石片","皮特里9号陶石片或阿什摩莱博物馆1933.810号陶石片"
+      ] },
+      { sub:"民事", group:"（五）与债务相关的法律誓言", docs:["伽丁内尔106号陶片","密查埃利德斯1号陶石片"] },
+      { sub:"神谕", docs:[
+        "大英博物馆 10335 号文献","大英博物馆 5624 号文献","大英博物馆 5637 号文献",
+        "开罗 43649 号文献","开罗 58092 号文献（布拉克 X）","日内瓦 12550 号文献","柏林 10629 号文献"
+      ] },
+      { sub:"国际条约", docs:["银板条约"] },
+      { sub:"其他法律文献", docs:[
+        "IFAO 1357 号陶石片","密查埃利德斯 47 号陶石片","开罗 72465 号文献",
+        "维也纳文献","都灵 57007 号陶石片","都灵 9622 号文献"
+      ] }
+    ];
+
+    function applyRound63LegalTaxonomyPatch() {
+      const legal = DOCUMENT_CATEGORY_TREE.find(cat => cat.id === "legal");
+      if (!legal) throw new Error("Round63 taxonomy patch: legal corpus missing");
+      ROUND63_LEGAL_TAXONOMY_ADDITIONS.forEach(addition => {
+        const sub = legal.subs.find(item => item.name === addition.sub);
+        if (!sub) throw new Error(`Round63 taxonomy patch: subcategory missing: ${addition.sub}`);
+        const target = addition.group
+          ? sub.groups.find(item => item.name === addition.group)
+          : sub;
+        if (!target || !Array.isArray(target.docs)) {
+          throw new Error(`Round63 taxonomy patch: target missing: ${addition.sub}/${addition.group || "docs"}`);
+        }
+        target.docs.push(...addition.docs);
+      });
+    }
+    applyRound63LegalTaxonomyPatch();
+    window.ROUND63_LEGAL_TAXONOMY_ADDITIONS = ROUND63_LEGAL_TAXONOMY_ADDITIONS;
 
     function normalizeDocumentName(name) {
       return String(name || "")
@@ -766,20 +827,18 @@
       );
     }
 
-    function NotesSection({ notes }) {
-      if (!notes) return null;
-      const isImportMetadata = notes.startsWith("CA-ECON-v1|");
+    function NotesSection({ notes, provenance, annotationMeta }) {
+      // Round64 used notes for CA-ECON import metadata.  Round65 separates the
+      // reader-facing annotation text from machine provenance while retaining
+      // a legacy fallback during an atomic deployment.
+      const legacyMetadata = !provenance && notes && notes.startsWith("CA-ECON-v1|")
+        ? notes : "";
+      const humanNotes = legacyMetadata ? "" : (notes || "");
+      const provenanceText = provenance || legacyMetadata;
+      const sourceAnnotations = Array.isArray(annotationMeta) ? annotationMeta : [];
+      if (!humanNotes && !provenanceText) return null;
 
-      if (!isImportMetadata) {
-        return (
-          <>
-            <div style={S.section}>注释</div>
-            <div style={{ fontSize:14, color:"#5D4037", lineHeight:1.7 }}>{notes}</div>
-          </>
-        );
-      }
-
-      const parts = notes.split("|");
+      const parts = provenanceText ? provenanceText.split("|") : [];
       const metadata = { source_line_id: parts[1] || "" };
       parts.slice(2).forEach(part => {
         const separator = part.indexOf("=");
@@ -804,33 +863,69 @@
           ? (relationLabels[metadata[key]] || metadata[key]) : metadata[key]]);
 
       return (
-        <details style={{ marginTop:16 }}>
-          <summary style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
-            letterSpacing:"0.08em", color:"#8B7355", cursor:"pointer",
-            borderTop:"1px solid #E8DCC8", paddingTop:10 }}>
-            数据来源与校勘信息（点击展开）
-          </summary>
-          <div style={{ marginTop:10, padding:"12px 14px", background:"#F5F0E8",
-            border:"1px solid #E8DCC8", borderRadius:6 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"max-content minmax(0,1fr)",
-              columnGap:14, rowGap:8, fontSize:11, lineHeight:1.6 }}>
-              {entries.map(([label, value]) => (
-                <React.Fragment key={label}>
-                  <span style={{ color:"#8B7355" }}>{label}</span>
-                  <span style={{ color:"#3D261A", fontFamily:"'JetBrains Mono',monospace",
-                    overflowWrap:"anywhere" }}>{value}</span>
-                </React.Fragment>
-              ))}
-            </div>
-            <details style={{ marginTop:10 }}>
-              <summary style={{ fontSize:10, color:"#A09080", cursor:"pointer" }}>
-                查看原始导入标识
+        <>
+          {humanNotes && (
+            <>
+              <div style={S.section}>注释</div>
+              <div style={{ fontSize:14, color:"#5D4037", lineHeight:1.85,
+                whiteSpace:"pre-line" }}>{humanNotes}</div>
+              {sourceAnnotations.length > 0 && (
+                <details style={{ marginTop:10 }}>
+                  <summary style={{ fontSize:10, color:"#A09080", cursor:"pointer" }}>
+                    注释版本与页码（{sourceAnnotations.length}条，点击展开）
+                  </summary>
+                  <div style={{ marginTop:8, display:"grid", rowGap:6 }}>
+                    {sourceAnnotations.map(item => {
+                      const source = item.source || {};
+                      const display = item.display || {};
+                      return (
+                        <div key={item.annotation_id} style={{ fontSize:10,
+                          color:"#6D5A4A", fontFamily:"'JetBrains Mono',monospace",
+                          overflowWrap:"anywhere" }}>
+                          {display.web_marker || "•"} 书中{source.book_marker || "—"}
+                          {source.printed_page ? ` · 印刷页 ${source.printed_page}` : ""}
+                          {source.pdf_page ? ` · PDF 第 ${source.pdf_page} 页` : ""}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
+            </>
+          )}
+
+          {provenanceText && (
+            <details style={{ marginTop:16 }}>
+              <summary style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
+                letterSpacing:"0.08em", color:"#8B7355", cursor:"pointer",
+                borderTop:"1px solid #E8DCC8", paddingTop:10 }}>
+                数据来源与校勘信息（点击展开）
               </summary>
-              <div style={{ marginTop:6, fontFamily:"'JetBrains Mono',monospace",
-                fontSize:10, color:"#6D5A4A", overflowWrap:"anywhere" }}>{notes}</div>
+              <div style={{ marginTop:10, padding:"12px 14px", background:"#F5F0E8",
+                border:"1px solid #E8DCC8", borderRadius:6 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"max-content minmax(0,1fr)",
+                  columnGap:14, rowGap:8, fontSize:11, lineHeight:1.6 }}>
+                  {entries.map(([label, value]) => (
+                    <React.Fragment key={label}>
+                      <span style={{ color:"#8B7355" }}>{label}</span>
+                      <span style={{ color:"#3D261A", fontFamily:"'JetBrains Mono',monospace",
+                        overflowWrap:"anywhere" }}>{value}</span>
+                    </React.Fragment>
+                  ))}
+                </div>
+                <details style={{ marginTop:10 }}>
+                  <summary style={{ fontSize:10, color:"#A09080", cursor:"pointer" }}>
+                    查看原始导入标识
+                  </summary>
+                  <div style={{ marginTop:6, fontFamily:"'JetBrains Mono',monospace",
+                    fontSize:10, color:"#6D5A4A", overflowWrap:"anywhere" }}>
+                    {provenanceText}
+                  </div>
+                </details>
+              </div>
             </details>
-          </div>
-        </details>
+          )}
+        </>
       );
     }
 
@@ -861,7 +956,8 @@
           <GardinerSection row={row} defaultOpen={defaultOpenCodes} />
           <MdCSection row={row} defaultOpen={defaultOpenCodes} />
 
-          <NotesSection notes={row.notes} />
+          <NotesSection notes={row.notes} provenance={row.provenance}
+            annotationMeta={row.annotation_meta} />
         </div>
       );
     }
