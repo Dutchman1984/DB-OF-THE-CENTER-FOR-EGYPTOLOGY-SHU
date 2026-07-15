@@ -759,7 +759,20 @@
     function updateArchiveSelections(previous, selection) {
       const nextKey = archiveSelectionKey(selection);
       const exists = previous.some(item => archiveSelectionKey(item) === nextKey);
-      if (exists) return previous.filter(item => archiveSelectionKey(item) !== nextKey);
+      if (exists) {
+        const remaining = previous.filter(item => archiveSelectionKey(item) !== nextKey);
+        if (remaining.length > 0) return remaining;
+
+        // When the active path contains only this selection, clicking it again
+        // means "go up one level", not "reset the entire archive".
+        if (selection.level === "group") {
+          return [{ level:"sub", catId:selection.catId, subIndex:selection.subIndex }];
+        }
+        if (selection.level === "sub") {
+          return [{ level:"cat", catId:selection.catId }];
+        }
+        return [];
+      }
 
       const compatible = previous.filter(item => {
         if (!selection.catId || item.catId !== selection.catId) return true;
@@ -919,12 +932,15 @@
                     {sourceAnnotations.map(item => {
                       const source = item.source || {};
                       const display = item.display || {};
+                      const marker = display.web_marker || item.display_marker || "•";
+                      const bookMarker = source.book_marker || item.original_marker || "—";
+                      const printedPage = source.printed_page || item.formal_pdf_page || "";
                       return (
                         <div key={item.annotation_id} style={{ fontSize:10,
                           color:"#6D5A4A", fontFamily:"'JetBrains Mono',monospace",
                           overflowWrap:"anywhere" }}>
-                          {display.web_marker || "•"} 书中{source.book_marker || "—"}
-                          {source.printed_page ? ` · 印刷页 ${source.printed_page}` : ""}
+                          {marker} 原编号 {bookMarker}
+                          {printedPage ? ` · 印刷页 ${printedPage}` : ""}
                           {source.pdf_page ? ` · PDF 第 ${source.pdf_page} 页` : ""}
                         </div>
                       );
