@@ -62,6 +62,51 @@
     }
     .search-input:focus { border-color: #C4956A; box-shadow: 0 0 0 3px rgba(196,149,106,0.12); }
     .match-hl { background: #C4956A22; padding: 1px 3px; border-radius: 2px; color: #8B4513; }
+    .search-document-filter-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 12px;
+    }
+    .search-document-filter-list.is-collapsed {
+      max-height: 78px;
+      overflow: hidden;
+    }
+    .search-fold-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 22px;
+      margin: 3px auto 0;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #B5835A;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      transition: background .16s ease, color .16s ease;
+    }
+    .search-fold-toggle:hover,
+    .search-fold-toggle:focus-visible {
+      color: #7A4A28;
+      background: rgba(196,149,106,.16);
+      outline: none;
+    }
+    .search-result-copy.is-collapsed .search-result-translation,
+    .search-result-copy.is-collapsed .search-result-transliteration {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .search-result-copy.is-collapsed .search-result-translation {
+      -webkit-line-clamp: 4;
+    }
+    .search-result-copy.is-collapsed .search-result-transliteration {
+      -webkit-line-clamp: 3;
+    }
     :root {
       --corpus-translit-size: 14px;
       --corpus-translit-line-height: 1.75;
@@ -1085,6 +1130,12 @@
     // ── 单条对齐结果卡片 ──
     function AlignmentCard({ row, idx, showChapter, query, onOpenDetail, onOpenChapter }) {
       const [expanded, setExpanded] = useState(false);
+      const [textExpanded, setTextExpanded] = useState(false);
+      const translationLength = String(row.translation_zh || "").length;
+      const transliterationLength = String(row.transliteration || "").length;
+      const hasOversizedText = translationLength > 300
+        || transliterationLength > 460
+        || translationLength + transliterationLength > 600;
       return (
         <div className="card-anim hover-card" style={{
           background:"#FFFCF7", border:"1px solid #E8DCC8", borderRadius:8,
@@ -1125,14 +1176,15 @@
             )}
           </div>
 
-          {/* 中文翻译（始终显示） */}
-          <div style={{ fontSize:16, lineHeight:1.8, color:"#2C1810", marginBottom:8 }}>
-            {row.translation_zh}
-          </div>
-
-          {/* 拉丁转写（始终显示） */}
-          <div className="egyptological-transliteration">
-            {row.transliteration}
+          {/* 中文翻译 + 拉丁转写：异常长的块级映射默认折叠 */}
+          <div className={`search-result-copy ${hasOversizedText && !textExpanded ? "is-collapsed" : ""}`}>
+            <div className="search-result-translation"
+              style={{ fontSize:16, lineHeight:1.8, color:"#2C1810", marginBottom:8 }}>
+              {row.translation_zh}
+            </div>
+            <div className="egyptological-transliteration search-result-transliteration">
+              {row.transliteration}
+            </div>
           </div>
 
           {/* 展开区域：圣书体 + Gardiner + MdC */}
@@ -1144,7 +1196,23 @@
           )}
 
           {/* 底部操作栏 */}
-          <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", marginTop:8 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
+            <div>
+              {hasOversizedText && (
+                <button
+                  type="button"
+                  className="search-fold-toggle"
+                  aria-expanded={textExpanded}
+                  aria-label={textExpanded ? "收起超长译文与转写" : "展开完整译文与转写"}
+                  title={textExpanded ? "收起全文" : "展开全文"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTextExpanded(value => !value);
+                  }}>
+                  {textExpanded ? "▴" : "▾"}
+                </button>
+              )}
+            </div>
             <span onClick={(e) => { e.stopPropagation(); onOpenDetail && onOpenDetail(row); }}
               style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10,
                 color:"#C4956A", letterSpacing:"0.08em", cursor:"pointer",
@@ -1152,6 +1220,100 @@
               查看详情 →
             </span>
           </div>
+        </div>
+      );
+    }
+
+    function SearchDocumentFilters({ filters, selectedKeys, onToggle, onClear }) {
+      const listRef = useRef(null);
+      const [expanded, setExpanded] = useState(false);
+      const [hasMoreThanTwoRows, setHasMoreThanTwoRows] = useState(false);
+
+      const measureRows = useCallback(() => {
+        const node = listRef.current;
+        if (!node) return;
+        setHasMoreThanTwoRows(node.scrollHeight > 79);
+      }, []);
+
+      useEffect(() => {
+        setExpanded(false);
+      }, [filters]);
+
+      useEffect(() => {
+        const node = listRef.current;
+        if (!node) return undefined;
+        const frame = requestAnimationFrame(measureRows);
+        const observer = typeof ResizeObserver === "function"
+          ? new ResizeObserver(measureRows)
+          : null;
+        observer && observer.observe(node);
+        window.addEventListener("resize", measureRows);
+        return () => {
+          cancelAnimationFrame(frame);
+          observer && observer.disconnect();
+          window.removeEventListener("resize", measureRows);
+        };
+      }, [measureRows, filters, selectedKeys.size]);
+
+      return (
+        <div>
+          <div
+            id="search-document-filter-list"
+            ref={listRef}
+            className={`search-document-filter-list ${hasMoreThanTwoRows && !expanded ? "is-collapsed" : ""}`}>
+            {filters.map(doc => {
+              const active = selectedKeys.has(doc.key);
+              return (
+                <button
+                  key={doc.key}
+                  type="button"
+                  onClick={() => onToggle(doc.key)}
+                  style={{
+                    border:`1px solid ${active ? "#C4956A" : "#C4956A35"}`,
+                    background: active ? "#C4956A40" : "#C4956A14",
+                    color: active ? "#4A2A18" : "#9A7658",
+                    borderRadius:999,
+                    padding:"7px 15px",
+                    fontSize:15,
+                    lineHeight:1.25,
+                    whiteSpace:"nowrap",
+                    fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
+                    fontWeight: active ? 600 : 500,
+                    letterSpacing:"0.02em",
+                    cursor:"pointer",
+                    boxShadow: active ? "0 2px 10px rgba(196,149,106,0.18)" : "none",
+                    transition:"all 0.16s ease"
+                  }}
+                  title={`点击${active ? "取消筛选" : "只显示"}「${doc.chapter}」`}>
+                  {doc.chapter} · {doc.count}
+                </button>
+              );
+            })}
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={onClear}
+                style={{ border:"1px solid #8B735530", background:"#8B735510",
+                  color:"#8B7355", borderRadius:999, padding:"7px 15px",
+                  fontSize:15, lineHeight:1.25, whiteSpace:"nowrap",
+                  fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
+                  cursor:"pointer" }}>
+                清除选择
+              </button>
+            )}
+          </div>
+          {hasMoreThanTwoRows && (
+            <button
+              type="button"
+              className="search-fold-toggle"
+              aria-controls="search-document-filter-list"
+              aria-expanded={expanded}
+              aria-label={expanded ? "收起文献筛选列表" : "展开全部文献筛选列表"}
+              title={expanded ? "收起文献列表" : "展开全部文献"}
+              onClick={() => setExpanded(value => !value)}>
+              {expanded ? "▴" : "▾"}
+            </button>
+          )}
         </div>
       );
     }
@@ -1827,47 +1989,12 @@
                           : ""}
                       </div>
                       {searchDocumentFilters.length > 0 && (
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:9, marginTop:12 }}>
-                          {searchDocumentFilters.map(doc => {
-                            const active = selectedSearchChapterSet.has(doc.key);
-                            return (
-                              <button
-                                key={doc.key}
-                                type="button"
-                                onClick={() => toggleSearchChapterFilter(doc.key)}
-                                style={{
-                                  border:`1px solid ${active ? "#C4956A" : "#C4956A35"}`,
-                                  background: active ? "#C4956A40" : "#C4956A14",
-                                  color: active ? "#4A2A18" : "#9A7658",
-                                  borderRadius:999,
-                                  padding:"7px 15px",
-                                  fontSize:15,
-                                  lineHeight:1.25,
-                                  fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
-                                  fontWeight: active ? 600 : 500,
-                                  letterSpacing:"0.02em",
-                                  cursor:"pointer",
-                                  boxShadow: active ? "0 2px 10px rgba(196,149,106,0.18)" : "none",
-                                  transition:"all 0.16s ease"
-                                }}
-                                title={`点击${active ? "取消筛选" : "只显示"}「${doc.chapter}」`}>
-                                {doc.chapter} · {doc.count}
-                              </button>
-                            );
-                          })}
-                          {selectedSearchChapters.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSearchChapters([])}
-                              style={{ border:"1px solid #8B735530", background:"#8B735510",
-                                color:"#8B7355", borderRadius:999, padding:"7px 15px",
-                                fontSize:15, lineHeight:1.25,
-                                fontFamily:"'Noto Serif SC','Cormorant Garamond',serif",
-                                cursor:"pointer" }}>
-                              清除选择
-                            </button>
-                          )}
-                        </div>
+                        <SearchDocumentFilters
+                          key={q.trim()}
+                          filters={searchDocumentFilters}
+                          selectedKeys={selectedSearchChapterSet}
+                          onToggle={toggleSearchChapterFilter}
+                          onClear={() => setSelectedSearchChapters([])} />
                       )}
                     </div>
                   )}
