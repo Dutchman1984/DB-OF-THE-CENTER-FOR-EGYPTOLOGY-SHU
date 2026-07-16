@@ -12,6 +12,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="images/glyphs/sizes.js"></script>
   <script src="jsesh.umd.js"></script>
+  <script src="hieroglyph-directions.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; padding: 0; background-color: #FAF6F0; background-image: url('bg-hieroglyphs.png'); background-repeat: repeat; background-size: 900px auto; position: relative; }
@@ -117,6 +118,7 @@
     const SUPABASE_KEY  = window.CORPUS_SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaXNxZWl0YW94bGtxcmF0aXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjYxMTcsImV4cCI6MjA5MjU0MjExN30.Eoz9MGwtdkDY2IYh1bv3Dk4UYZk-kCXBWXPtzfA4XzQ";
     const HIEROGLYPH_ASSET_BASE = window.CORPUS_HIEROGLYPH_ASSET_BASE
       || `${SUPABASE_URL}/storage/v1/object/public/hieroglyph-render`;
+    const HIEROGLYPH_DIRECTIONS = window.CORPUS_HIEROGLYPH_DIRECTIONS || {};
     // ═══════════════════════════════════════════════════════════
 
     // ── 轻量 Supabase 客户端（不引入完整 SDK，减少加载体积）──
@@ -323,12 +325,31 @@
       return `${HIEROGLYPH_ASSET_BASE}/${encodedPath}`;
     }
 
-    function HieroglyphView({ svgPath, mdc, gardiner }) {
+    function hieroglyphDirectionFor(sourceFile) {
+      const direction = HIEROGLYPH_DIRECTIONS[sourceFile];
+      if (!direction) {
+        return {
+          readingDirection: "unverified",
+          sourceLayout: "unknown",
+          displayFacing: "unverified"
+        };
+      }
+      return direction;
+    }
+
+    function HieroglyphView({ svgPath, mdc, gardiner, direction }) {
       const containerRef = useRef(null);
       const [status, setStatus] = useState("idle");
       const [svgRetry, setSvgRetry] = useState(0);
       const [svgFailed, setSvgFailed] = useState(false);
       const MAX_SVG_RETRIES = 2;
+      const displayFacing = direction?.displayFacing || "unverified";
+      const orientationClass = displayFacing === "right" ? " hieroglyph-facing-right" : "";
+      const orientationAttrs = {
+        "data-hieroglyph-facing": displayFacing,
+        "data-hieroglyph-reading-direction": direction?.readingDirection || "unverified",
+        "data-hieroglyph-source-layout": direction?.sourceLayout || "unknown"
+      };
 
       useEffect(() => {
         setSvgRetry(0);
@@ -386,7 +407,8 @@
       if (svgPath) {
         if (svgFailed) {
           return (
-            <div className="hiero-render-area official-hieroglyph-area">
+            <div className={`hiero-render-area official-hieroglyph-area${orientationClass}`}
+              {...orientationAttrs}>
               <div className="hiero-error">
                 官方象形文字 SVG 加载失败（已重试 {MAX_SVG_RETRIES} 次）；为避免错误方向或版式，本行不降级渲染。
                 <button type="button" onClick={() => { setSvgRetry(0); setSvgFailed(false); }}
@@ -403,7 +425,8 @@
           : storageObjectUrl(svgPath);
         const stillRetrying = svgRetry > 0 && svgRetry <= MAX_SVG_RETRIES;
         return (
-          <div className="hiero-render-area official-hieroglyph-area">
+          <div className={`hiero-render-area official-hieroglyph-area${orientationClass}`}
+            {...orientationAttrs}>
             {stillRetrying && (
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0",
                 fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:"#8B7355" }}>
@@ -450,7 +473,8 @@
               已使用 Gardiner 符号序列降级渲染
             </div>
           )}
-          <div ref={containerRef} className="hiero-render-area" />
+          <div ref={containerRef} className={`hiero-render-area${orientationClass}`}
+            {...orientationAttrs} />
         </div>
       );
     }
@@ -1008,7 +1032,8 @@
         <div>
           <div style={S.section}>圣书体 (Hieroglyphic Text · SVG Rendering)</div>
           <HieroglyphView svgPath={row.render_svg_path}
-            mdc={row.jsesh_mdc} gardiner={row.search_gardiner} />
+            mdc={row.jsesh_mdc} gardiner={row.search_gardiner}
+            direction={hieroglyphDirectionFor(row.source_file)} />
 
           <GardinerSection row={row} defaultOpen={defaultOpenCodes} />
           <MdCSection row={row} defaultOpen={defaultOpenCodes} />
