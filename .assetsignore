@@ -10,3 +10,5 @@ jsesh-smoke-test.html
 start-local-server.bat
 start-local-server.sh
 wrangler.jsonc
+worker.mjs
+tests
