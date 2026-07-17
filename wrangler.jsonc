@@ -1,8 +1,17 @@
 {
   "name": "corpus-aegyptiacum",
-  "compatibility_date": "2026-07-08",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-07-17",
   "workers_dev": true,
   "preview_urls": false,
+  "triggers": {
+    "crons": [
+      "17 */6 * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
   "routes": [
     {
       "pattern": "shu-egyptology-db.site",
@@ -10,6 +19,7 @@
     }
   ],
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS"
   }
 }
