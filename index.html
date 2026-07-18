@@ -107,17 +107,6 @@
     .search-result-copy.is-collapsed .search-result-transliteration {
       -webkit-line-clamp: 3;
     }
-    .search-v2-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
-    .search-v2-select { border:1px solid #D4C5B0; border-radius:999px; background:#FFFCF7;
-      color:#6E5038; padding:7px 12px; font:11px 'JetBrains Mono',monospace; outline:none; }
-    .search-v2-fields { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
-    .search-v2-status { margin-top:9px; font:10px 'JetBrains Mono',monospace; color:#8B7355; }
-    .kwic-line { font-size:14px; line-height:1.75; color:#5D4037; margin:4px 0; }
-    .kwic-label { display:inline-block; min-width:72px; color:#9A7658;
-      font:10px 'JetBrains Mono',monospace; letter-spacing:.04em; }
-    .kwic-hit { background:#F0DCC8; color:#6D3518; border-radius:3px; padding:1px 2px; font-weight:600; }
-    .search-facet-row { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; align-items:center; }
-    .search-facet-label { min-width:44px; color:#8B7355; font:10px 'JetBrains Mono',monospace; }
     :root {
       --corpus-translit-size: 14px;
       --corpus-translit-line-height: 1.75;
@@ -170,9 +159,7 @@
     // ═══════════════════════════════════════════════════════════
     // ██  在此填入你的 Supabase 配置（anon key，不是 service_role）
     // ═══════════════════════════════════════════════════════════
-    const LOCAL_DEV_API = ["127.0.0.1","localhost"].includes(window.location.hostname)
-      ? new URLSearchParams(window.location.search).get("api") : null;
-    const SUPABASE_URL  = window.CORPUS_SUPABASE_URL || LOCAL_DEV_API || "https://api.shu-egyptology-db.site";
+    const SUPABASE_URL  = window.CORPUS_SUPABASE_URL || "https://api.shu-egyptology-db.site";
     const SUPABASE_KEY  = window.CORPUS_SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaXNxZWl0YW94bGtxcmF0aXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjYxMTcsImV4cCI6MjA5MjU0MjExN30.Eoz9MGwtdkDY2IYh1bv3Dk4UYZk-kCXBWXPtzfA4XzQ";
     const HIEROGLYPH_ASSET_BASE = window.CORPUS_HIEROGLYPH_ASSET_BASE
       || `${SUPABASE_URL}/storage/v1/object/public/hieroglyph-render`;
@@ -548,10 +535,6 @@
           transliteration: ["转写", "#558B2F"],
           translation_zh: ["中文", "#C62828"],
           search_gardiner: ["Gardiner", "#6A1B9A"],
-          gardiner: ["Gardiner", "#6A1B9A"],
-          mdc: ["MdC", "#6A1B9A"],
-          notes: ["注释", "#8B5A2B"],
-          metadata: ["元数据", "#455A64"],
         };
         const [label, color] = map[field] || [field, "#8B7355"];
         return { display:"inline-block", padding:"3px 8px", borderRadius:999, fontSize:10,
@@ -572,25 +555,6 @@
         fontSize:12, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer",
         transition:"all 0.2s", whiteSpace:"nowrap" }),
     };
-
-    const SEARCH_MODE_OPTIONS = [
-      ["loose","宽松转写"], ["strict","严格转写"], ["exact","原文精确"],
-      ["phrase","短语"], ["fuzzy","模糊"], ["advanced","布尔/字段"]
-    ];
-    const SEARCH_FIELD_OPTIONS = [
-      ["translation_zh","中文"], ["transliteration","拉丁转写"], ["gardiner","Gardiner"],
-      ["mdc","MdC"], ["notes","注释"], ["metadata","元数据"]
-    ];
-    const ALL_SEARCH_FIELDS = SEARCH_FIELD_OPTIONS.map(([value]) => value);
-    const FACET_LABELS = { corpus:"语料", chapter:"文献", section:"小节" };
-
-    function KwicLine({ label, snippet }) {
-      if (!snippet || !snippet.match) return null;
-      return <div className="kwic-line">
-        <span className="kwic-label">{label}</span>
-        <span>{snippet.before}</span><mark className="kwic-hit">{snippet.match}</mark><span>{snippet.after}</span>
-      </div>;
-    }
 
     const G = (name, ...docs) => ({ name, docs });
     const D = (name, ...aliases) => ({ name, aliases });
@@ -1168,10 +1132,6 @@
     function AlignmentCard({ row, idx, showChapter, query, onOpenDetail, onOpenChapter }) {
       const [expanded, setExpanded] = useState(false);
       const [textExpanded, setTextExpanded] = useState(false);
-      const searchMeta = row._search || null;
-      const snippets = searchMeta?.snippets || {};
-      const hasKwic = Object.values(snippets).some(item => item && item.match);
-      const memberCount = searchMeta?.block_member_alignment_ids?.length || 1;
       const translationLength = String(row.translation_zh || "").length;
       const transliterationLength = String(row.transliteration || "").length;
       const hasOversizedText = translationLength > 300
@@ -1208,7 +1168,6 @@
               {row.section && (
                 <span style={S.tag("#7B9E87")}>{row.section}</span>
               )}
-              {memberCount > 1 && <span style={S.tag("#8B7355")}>同块 {memberCount} 行（已去重）</span>}
             </div>
             {row.match_field && (
               <span style={S.matchTag(row.match_field)}>
@@ -1218,27 +1177,16 @@
             )}
           </div>
 
-          {/* V2 命中上下文；无 KWIC（如旧 RPC 降级）时保留完整字段展示 */}
-          {hasKwic && !textExpanded ? (
-            <div className="search-result-copy">
-              <KwicLine label="中文" snippet={snippets.translation_zh} />
-              <KwicLine label="拉丁转写" snippet={snippets.transliteration} />
-              <KwicLine label="Gardiner" snippet={snippets.gardiner} />
-              <KwicLine label="MdC" snippet={snippets.mdc} />
-              <KwicLine label="注释" snippet={snippets.notes} />
-              <KwicLine label="元数据" snippet={snippets.metadata} />
+          {/* 中文翻译 + 拉丁转写：异常长的块级映射默认折叠 */}
+          <div className={`search-result-copy ${hasOversizedText && !textExpanded ? "is-collapsed" : ""}`}>
+            <div className="search-result-translation"
+              style={{ fontSize:16, lineHeight:1.8, color:"#2C1810", marginBottom:8 }}>
+              {row.translation_zh}
             </div>
-          ) : (
-            <div className={`search-result-copy ${hasOversizedText && !textExpanded ? "is-collapsed" : ""}`}>
-              <div className="search-result-translation"
-                style={{ fontSize:16, lineHeight:1.8, color:"#2C1810", marginBottom:8 }}>
-                {row.translation_zh}
-              </div>
-              <div className="egyptological-transliteration search-result-transliteration">
-                {row.transliteration}
-              </div>
+            <div className="egyptological-transliteration search-result-transliteration">
+              {row.transliteration}
             </div>
-          )}
+          </div>
 
           {/* 展开区域：圣书体 + Gardiner + MdC */}
           {expanded && (
@@ -1251,12 +1199,12 @@
           {/* 底部操作栏 */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
             <div>
-              {(hasOversizedText || hasKwic) && (
+              {hasOversizedText && (
                 <button
                   type="button"
                   className="search-fold-toggle"
                   aria-expanded={textExpanded}
-                  aria-label={textExpanded ? "收起全文" : "展开完整译文与转写"}
+                  aria-label={textExpanded ? "收起超长译文与转写" : "展开完整译文与转写"}
                   title={textExpanded ? "收起全文" : "展开全文"}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1369,27 +1317,6 @@
           )}
         </div>
       );
-    }
-
-    function SearchFacetPanel({ facets, selected, onToggle, onClear }) {
-      return <div style={{ marginTop:12, padding:"10px 12px", border:"1px solid #E8DCC8",
-        borderRadius:18, background:"rgba(255,252,247,.72)" }}>
-        {["corpus","chapter","section"].map(kind => {
-          const values = (facets?.[kind] || []).filter(item => item.value).slice(0, kind === "chapter" ? 60 : 24);
-          if (!values.length) return null;
-          return <div className="search-facet-row" key={kind}>
-            <span className="search-facet-label">{FACET_LABELS[kind]}</span>
-            {values.map(item => {
-              const active = (selected[kind] || []).includes(item.value);
-              return <button key={item.value} type="button" style={S.btn(active)}
-                title={`${item.count} 个去重结果`}
-                onClick={() => onToggle(kind,item.value)}>{item.value} · {item.count}</button>;
-            })}
-          </div>;
-        })}
-        {Object.values(selected).some(values => values.length > 0) &&
-          <button type="button" onClick={onClear} style={{ ...S.btn(false), marginTop:10 }}>清除全部分面</button>}
-      </div>;
     }
 
     function CompactCategoryButton({ active, color, children, count, onClick }) {
@@ -1580,28 +1507,11 @@
       const [archiveDocQuery, setArchiveDocQuery] = useState("");
 
       // ── 搜索状态 ──
-      const initialSearchParams = useMemo(() => new URLSearchParams(window.location.search), []);
-      const [q, setQ] = useState(initialSearchParams.get("q") || "");
+      const [q, setQ] = useState("");
       const [searchResults, setSearchResults] = useState(null);
       const [searchLoading, setSearchLoading] = useState(false);
       const [resultCount, setResultCount] = useState(0);
-      const [searchMode, setSearchMode] = useState(initialSearchParams.get("mode") || "loose");
-      const [searchFields, setSearchFields] = useState(() => {
-        const fields = (initialSearchParams.get("fields") || "").split(",").filter(value => ALL_SEARCH_FIELDS.includes(value));
-        return fields.length ? fields : ALL_SEARCH_FIELDS;
-      });
-      const [searchSort, setSearchSort] = useState(initialSearchParams.get("sort") || "relevance");
-      const [searchDeduplicate, setSearchDeduplicate] = useState(initialSearchParams.get("dedup") !== "0");
-      const [searchFacets, setSearchFacets] = useState({ corpus:[], chapter:[], section:[] });
-      const [selectedSearchFacets, setSelectedSearchFacets] = useState(() => ({
-        corpus:(initialSearchParams.get("corpus") || "").split("|").filter(Boolean),
-        chapter:(initialSearchParams.get("chapter") || "").split("|").filter(Boolean),
-        section:(initialSearchParams.get("section") || "").split("|").filter(Boolean)
-      }));
-      const [searchNextCursor, setSearchNextCursor] = useState(null);
-      const [searchContractStatus, setSearchContractStatus] = useState(null);
-      const [searchFallback, setSearchFallback] = useState(false);
-      const [searchError, setSearchError] = useState("");
+      const [selectedSearchChapters, setSelectedSearchChapters] = useState([]);
       const searchTimer = useRef(null);
       const [selectedAlignment, setSelectedAlignment] = useState(null);
       const [viewHistory, setViewHistory] = useState([]);
@@ -1665,89 +1575,40 @@
         })();
       }, []);
 
-      const runSearch = useCallback(async ({ cursor = null, append = false } = {}) => {
-        const query = q.trim();
-        if (!query) return;
-        setSearchLoading(true);
-        setSearchError("");
-        try {
-          const data = await sb.rpc("search_corpus_v2", {
-            query_text: query,
-            query_mode: searchMode,
-            selected_fields: searchFields,
-            filters: selectedSearchFacets,
-            sort_mode: searchSort,
-            page_size: 20,
-            after_cursor: cursor,
-            deduplicate_blocks: searchDeduplicate,
-            fuzzy_threshold: 0.34
-          });
-          if (["invalid_request","unsupported_operator","stale_cursor","build_unavailable"].includes(data.contract_status)) {
-            throw new Error(data.error || data.contract_status);
-          }
-          const rows = (data.results || []).map(item => ({ ...item.legacy_row, _search:item }));
-          setSearchResults(previous => append ? [...(previous || []), ...rows] : rows);
-          setResultCount(Number(data.total_hits || 0));
-          setSearchFacets(data.facets || { corpus:[], chapter:[], section:[] });
-          setSearchNextCursor(data.next_cursor || null);
-          setSearchContractStatus(data.contract_status || "ok");
-          setSearchFallback(false);
-        } catch (e) {
-          console.error("Search V2 failed:", e);
-          if (!append && searchMode === "loose" && Object.values(selectedSearchFacets).every(values => values.length === 0)) {
-            try {
-              const legacy = await sb.rpc("search_corpus", { query_text: query });
-              setSearchResults(legacy);
-              setResultCount(legacy.length);
-              setSearchFacets({ corpus:[], chapter:[], section:[] });
-              setSearchNextCursor(null);
-              setSearchContractStatus("legacy_fallback");
-              setSearchFallback(true);
-            } catch (legacyError) {
-              setSearchResults([]);
-              setSearchError("检索服务暂时不可用，请稍后重试。");
-            }
-          } else {
-            if (!append) setSearchResults([]);
-            setSearchError(e.message || "检索请求失败");
-          }
-        } finally {
-          setSearchLoading(false);
-        }
-      }, [q, searchMode, searchFields, searchSort, searchDeduplicate, selectedSearchFacets]);
-
-      // ── 搜索（防抖 420ms；换模式/字段/分面时重新从第一页执行）──
+      // ── 搜索（防抖 500ms）──
       useEffect(() => {
         if (!q.trim()) {
-          setSearchResults(null); setResultCount(0); setSearchNextCursor(null);
-          setSearchContractStatus(null); setSearchLoading(false); setSearchError("");
+          setSearchResults(null);
+          setSelectedSearchChapters([]);
+          setSearchLoading(false);
           return;
         }
+        setSearchLoading(true);
         if (searchTimer.current) clearTimeout(searchTimer.current);
-        searchTimer.current = setTimeout(() => runSearch(), 420);
+        searchTimer.current = setTimeout(async () => {
+          try {
+            const data = await sb.rpc("search_corpus", { query_text: q.trim() });
+            setSearchResults(data);
+            setResultCount(data.length);
+            setSelectedSearchChapters([]);
+          } catch (e) {
+            console.error("Search failed:", e);
+            setSearchResults([]);
+            setSelectedSearchChapters([]);
+          }
+          setSearchLoading(false);
+        }, 500);
         return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-      }, [runSearch]);
-
-      useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (q.trim()) params.set("q",q.trim()); else params.delete("q");
-        params.set("mode",searchMode); params.set("sort",searchSort);
-        params.set("fields",searchFields.join(",")); params.set("dedup",searchDeduplicate ? "1" : "0");
-        ["corpus","chapter","section"].forEach(kind => {
-          const values = selectedSearchFacets[kind] || [];
-          if (values.length) params.set(kind,values.join("|")); else params.delete(kind);
-        });
-        window.history.replaceState(null,"",`${window.location.pathname}?${params.toString()}${window.location.hash}`);
-      }, [q, searchMode, searchSort, searchFields, searchDeduplicate, selectedSearchFacets]);
+      }, [q]);
 
       const captureCurrentView = useCallback(() => ({
         tab,
         selChapter,
         selectedAlignment,
         q,
-        selectedSearchFacets,
+        selectedSearchChapters,
         scrollY: window.scrollY || 0
-      }), [tab, selChapter, selectedAlignment, q, selectedSearchFacets]);
+      }), [tab, selChapter, selectedAlignment, q, selectedSearchChapters]);
 
       const pushCurrentView = useCallback(() => {
         const view = captureCurrentView();
@@ -1758,7 +1619,7 @@
         setTab(view.tab || "search");
         setSelChapter(view.selChapter || null);
         setSelectedAlignment(view.selectedAlignment || null);
-        setSelectedSearchFacets(view.selectedSearchFacets || { corpus:[], chapter:[], section:[] });
+        setSelectedSearchChapters(view.selectedSearchChapters || []);
         setQ(view.q || "");
         requestAnimationFrame(() => {
           window.scrollTo({ top: view.scrollY || 0, behavior: "auto" });
@@ -1838,9 +1699,7 @@
         setQ("");
         setSearchResults(null);
         setResultCount(0);
-        setSelectedSearchFacets({ corpus:[], chapter:[], section:[] });
-        setSearchNextCursor(null);
-        setSearchError("");
+        setSelectedSearchChapters([]);
         setSelectedAlignment(null);
         setTab("search");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1982,21 +1841,45 @@
         };
       }, [archiveCategoryData, archiveSelections, archiveDocQuery]);
 
-      const visibleSearchResults = searchResults;
-      const toggleSearchFacet = useCallback((kind, value) => {
-        setSelectedSearchFacets(previous => ({
-          ...previous,
-          [kind]: previous[kind].includes(value)
-            ? previous[kind].filter(item => item !== value)
-            : [...previous[kind], value]
-        }));
-      }, []);
+      const selectedSearchChapterSet = useMemo(
+        () => new Set(selectedSearchChapters),
+        [selectedSearchChapters]
+      );
 
-      const toggleSearchField = useCallback((field) => {
-        setSearchFields(previous => {
-          if (previous.includes(field)) return previous.length === 1 ? previous : previous.filter(item => item !== field);
-          return [...previous, field];
+      // 搜索结果中的文献胶囊筛选器
+      const searchDocumentFilters = useMemo(() => {
+        if (!searchResults || searchResults.length === 0) return [];
+        const docMap = new Map();
+        searchResults.forEach((row, idx) => {
+          const chapter = row.chapter || "未命名文献";
+          const corpusId = inferDocumentCorpus(chapter, [row.source_file || ""], [row.notes || ""]);
+          const key = `${corpusId}|||${chapter}`;
+          if (!docMap.has(key)) {
+            docMap.set(key, { key, chapter, corpusId, count: 0, firstIndex: idx });
+          }
+          docMap.get(key).count++;
         });
+        return [...docMap.values()].sort((a, b) =>
+          b.count - a.count || a.firstIndex - b.firstIndex
+        );
+      }, [searchResults]);
+
+      const visibleSearchResults = useMemo(() => {
+        if (!searchResults) return null;
+        if (selectedSearchChapters.length === 0) return searchResults;
+        return searchResults.filter(row => {
+          const chapter = row.chapter || "未命名文献";
+          const corpusId = inferDocumentCorpus(chapter, [row.source_file || ""], [row.notes || ""]);
+          return selectedSearchChapterSet.has(`${corpusId}|||${chapter}`);
+        });
+      }, [searchResults, selectedSearchChapters.length, selectedSearchChapterSet]);
+
+      const toggleSearchChapterFilter = useCallback((chapterKey) => {
+        setSelectedSearchChapters(prev =>
+          prev.includes(chapterKey)
+            ? prev.filter(item => item !== chapterKey)
+            : [...prev, chapterKey]
+        );
       }, []);
 
       // 搜索结果中的唯一 Gardiner 符号统计
@@ -2088,7 +1971,7 @@
                 <div style={{ marginBottom:28 }}>
                   <div style={{ fontSize:13, fontFamily:"'JetBrains Mono',monospace",
                     color:"#8B7355", marginBottom:10, letterSpacing:"0.06em" }}>
-                    中文、转写、Gardiner、MdC、注释与元数据统一检索
+                    支持文献名 · 拉丁转写 · 中文翻译 · Gardiner 编码检索
                   </div>
                   <input
                     className="search-input"
@@ -2097,35 +1980,23 @@
                     placeholder="输入检索词：如 Imn、赫拉姆海布、G5 S3、anx、敕令、mAat ……"
                     style={S.input}
                   />
-                  <div className="search-v2-toolbar">
-                    <select className="search-v2-select" value={searchMode} onChange={e => setSearchMode(e.target.value)}>
-                      {SEARCH_MODE_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                    <select className="search-v2-select" value={searchSort} onChange={e => setSearchSort(e.target.value)}>
-                      <option value="relevance">相关度排序</option><option value="document">文献顺序</option><option value="corpus_order">语料库顺序</option>
-                    </select>
-                    <label style={{ ...S.btn(searchDeduplicate), display:"inline-flex", alignItems:"center", gap:6 }}>
-                      <input type="checkbox" checked={searchDeduplicate} onChange={e => setSearchDeduplicate(e.target.checked)} /> 块级去重
-                    </label>
-                  </div>
-                  <div className="search-v2-fields">
-                    {SEARCH_FIELD_OPTIONS.map(([field,label]) => <button key={field} type="button"
-                      style={S.btn(searchFields.includes(field))} onClick={() => toggleSearchField(field)}>{label}</button>)}
-                  </div>
-                  {searchMode === "advanced" && <div className="search-v2-status">
-                    语法：AND / OR / NOT / -排除；字段前缀 zh:、translit:、gardiner:、mdc:、notes:、meta:；短语用英文双引号。当前版本不支持括号。
-                  </div>}
                   {q.trim() && !searchLoading && searchResults && (
                     <div>
                       <div style={{ marginTop:10, fontFamily:"'JetBrains Mono',monospace",
                         fontSize:12, color:"#C4956A", letterSpacing:"0.05em" }}>
-                        找到 {resultCount} 个{searchDeduplicate ? "去重块" : "对齐行"} · 已载入 {searchResults.length} 条
+                        找到 {resultCount} 条匹配结果
+                        {selectedSearchChapters.length > 0 && visibleSearchResults
+                          ? ` · 当前显示 ${visibleSearchResults.length} 条`
+                          : ""}
                       </div>
-                      {searchFallback && <div className="search-v2-status">V2 暂不可用，当前为旧检索只读降级结果。</div>}
-                      {searchError && <div className="search-v2-status" style={{ color:"#B71C1C" }}>{searchError}</div>}
-                      {!searchFallback && <SearchFacetPanel facets={searchFacets} selected={selectedSearchFacets}
-                        onToggle={toggleSearchFacet}
-                        onClear={() => setSelectedSearchFacets({ corpus:[], chapter:[], section:[] })} />}
+                      {searchDocumentFilters.length > 0 && (
+                        <SearchDocumentFilters
+                          key={q.trim()}
+                          filters={searchDocumentFilters}
+                          selectedKeys={selectedSearchChapterSet}
+                          onToggle={toggleSearchChapterFilter}
+                          onClear={() => setSelectedSearchChapters([])} />
+                      )}
                     </div>
                   )}
                 </div>
@@ -2136,14 +2007,14 @@
                     title="全文语料检索 (Full-Text Corpus Search)"
                     msg="输入任意拉丁转写、中文词句或 Gardiner 编码，即可在全部语料中定位匹配段落"
                   />
-                ) : searchLoading && !searchResults ? (
+                ) : searchLoading ? (
                   <Spinner label="Searching corpus..." />
                 ) : searchResults && searchResults.length === 0 ? (
                   <EmptyState title="未找到匹配结果" msg={`语料中未检索到「${q}」`} />
                 ) : searchResults ? (
                   <>
                     {/* Gardiner 符号频率（仅在 Gardiner 搜索时有意义） */}
-                    {gardinerStats.length > 0 && visibleSearchResults.some(r => ["search_gardiner","gardiner"].includes(r.match_field)) && (
+                    {gardinerStats.length > 0 && visibleSearchResults.some(r => r.match_field === "search_gardiner") && (
                       <div style={{ marginBottom:20, padding:"14px 18px", background:"#F5F0E8",
                         borderRadius:8, border:"1px solid #E8DCC8" }}>
                         <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace",
@@ -2167,12 +2038,6 @@
                         query={q} onOpenDetail={openAlignmentDetail}
                         onOpenChapter={openChapterByName} />
                     )}
-                    {searchNextCursor && <div style={{ textAlign:"center", margin:"22px 0" }}>
-                      <button type="button" style={S.btn(false)} disabled={searchLoading}
-                        onClick={() => runSearch({ cursor:searchNextCursor, append:true })}>
-                        {searchLoading ? "载入中…" : "加载下一页"}
-                      </button>
-                    </div>}
                   </>
                 ) : null}
               </>
