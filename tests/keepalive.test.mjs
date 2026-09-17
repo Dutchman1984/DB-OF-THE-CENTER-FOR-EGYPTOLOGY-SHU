@@ -26,7 +26,8 @@ test("keep-alive performs one authenticated read and accepts one id", async () =
   assert.match(request.url, /limit=1/);
   assert.equal(request.init.method, "GET");
   assert.equal(request.init.headers.apikey, "test-anon-key");
-  assert.equal(request.init.headers.Authorization, "Bearer test-anon-key");
+  // publishable key 不是 JWT，只能放在 apikey 头里
+  assert.equal(request.init.headers.Authorization, undefined);
 });
 
 test("keep-alive fails closed when the secret is absent", async () => {
