@@ -12,7 +12,6 @@ export async function runKeepAlive(env, schedule, fetchImpl = fetch) {
     headers: {
       Accept: "application/json",
       apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
       "Cache-Control": "no-store",
       "User-Agent": "Corpus-Aegyptiacum-keepalive/1.0",
     },
