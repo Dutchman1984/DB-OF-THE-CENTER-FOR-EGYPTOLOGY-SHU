@@ -1492,6 +1492,97 @@
     }
 
     // ── 主应用 ──
+    function CreditRow({ role, name }) {
+      const [hover, setHover] = React.useState(false);
+      return (
+        <div
+          onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+          style={{ cursor:"default", padding:"1px 0" }}>
+          <span style={{ color: hover ? "#E0B080" : "#C4956A", transition:"color 0.15s" }}>{role}</span>
+          <span style={{ color:"#8B7355", margin:"0 7px" }}>·</span>
+          <span style={{ color: hover ? "#FFFFFF" : "#E8DCC8", transition:"color 0.15s" }}>{name}</span>
+        </div>
+      );
+    }
+
+    function CreditsBadge() {
+      const [open, setOpen] = React.useState(false);
+      const credits = [
+        ["项目主持 PROJECT DIRECTOR", "郭丹彤 GUO DANTONG"],
+        ["数据库全栈开发 DATABASE DEVELOPMENT", "张思源 ZHANG SIYUAN"],
+        ["学术顾问与校订 ACADEMIC ADVISOR & REVISION", "蒋天浩 JIANG TIANHAO"],
+      ];
+      return (
+        <span style={{ position:"relative", display:"inline-flex", alignItems:"center", zIndex:130 }}
+          onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+          <span role="button" tabIndex={0} aria-label="项目署名 Credits"
+            onClick={() => setOpen(v => !v)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(v => !v); } }}
+            onBlur={() => setOpen(false)}
+            style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
+              width:13, height:13, borderRadius:"50%", boxSizing:"border-box", flex:"0 0 auto",
+              border:"2px solid #C4956A",
+              background: open ? "#C4956A" : "transparent",
+              color: open ? "#2C1810" : "#C4956A",
+              fontFamily:"'Helvetica Neue',Helvetica,Arial,sans-serif", fontWeight:700,
+              fontSize:9, lineHeight:1, letterSpacing:0,
+              cursor:"pointer", userSelect:"none", transition:"all 0.18s" }}>i</span>
+          {open && (
+            <div style={{ position:"absolute", top:"calc(100% + 10px)", left:"50%",
+              transform:"translateX(-50%)", zIndex:140,
+              background:"rgba(26,15,10,0.15)", border:"1px solid rgba(196,149,106,0.45)",
+              borderRadius:8, backdropFilter:"blur(5px)", WebkitBackdropFilter:"blur(5px)",
+              padding:"12px 16px", textAlign:"left", whiteSpace:"nowrap",
+              boxShadow:"0 10px 28px rgba(0,0,0,0.35)",
+              fontFamily:"'JetBrains Mono',monospace", fontSize:10.5, fontWeight:400,
+              letterSpacing:"0.08em", lineHeight:2 }}>
+              {credits.map(([role, name]) => (
+                <CreditRow key={role} role={role} name={name} />
+              ))}
+            </div>
+          )}
+        </span>
+      );
+    }
+
+    function FooterLink({ label, onClick }) {
+      const [hover, setHover] = React.useState(false);
+      return (
+        <span onClick={onClick}
+          onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+          style={{ cursor:"pointer", color: hover ? "#C4956A" : "#A09080",
+            borderBottom: hover ? "1px solid #C4956A" : "1px solid rgba(160,144,128,0.4)",
+            transition:"all 0.15s" }}>{label}</span>
+      );
+    }
+
+    function FooterMeta() {
+      const [showContact, setShowContact] = React.useState(false);
+      const mails = ["guodantong@shu.edu.cn", "siyuanzhang@shu.edu.cn", "tianhaojiang@shu.edu.cn"];
+      return (
+        <div style={{ marginTop:8 }}>
+          <div>
+            <FooterLink label="关于本库 About" />
+            <span style={{ margin:"0 8px", opacity:0.5 }}>·</span>
+            <FooterLink label="引用方式 How to cite" />
+            <span style={{ margin:"0 8px", opacity:0.5 }}>·</span>
+            <span onMouseEnter={() => setShowContact(true)} onMouseLeave={() => setShowContact(false)}>
+              <FooterLink label="联系 Contact" />
+            </span>
+          </div>
+          {showContact && (
+            <div style={{ marginTop:8, lineHeight:1.9 }}>
+              {mails.map(m => (
+                <div key={m}>
+                  <a href={"mailto:" + m} style={{ color:"#A09080", textDecoration:"underline" }}>{m}</a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function App() {
       const [tab, setTab] = useState("search");
       const formatCount = value => Number.isFinite(value) ? value.toLocaleString("zh-CN") : "—";
@@ -1899,14 +1990,15 @@
 
           {/* ══════ HEADER ══════ */}
           <div style={{ background:"linear-gradient(135deg,#2C1810 0%,#3D261A 50%,#1A0F0A 100%)",
-            color:"#E8DCC8", padding:"28px 24px 24px", position:"relative", overflow:"hidden" }}>
+            color:"#E8DCC8", padding:"28px 24px 24px", position:"relative", overflow:"visible", zIndex:120 }}>
             <div style={{ position:"relative", display:"flex", justifyContent:"space-between",
               alignItems:"center", maxWidth:1000, margin:"0 auto" }}>
               <div style={{ display:"flex", alignItems:"center", gap:16 }}>
                 <img src="logo.png" alt="Logo" style={{ width:80, height:80 }} />
                 <div>
-                  <div style={{ fontSize:26, fontWeight:700, letterSpacing:"0.04em" }}>
-                    上海大学埃及学研究中心数据库
+                  <div style={{ fontSize:26, fontWeight:700, letterSpacing:"0.04em",
+                    display:"flex", alignItems:"center", gap:10, lineHeight:1, paddingTop:3 }}>
+                    <span style={{ lineHeight:1 }}>上海大学埃及学研究中心数据库</span><CreditsBadge />
                   </div>
                   <div style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace", color:"#C4956A",
                     letterSpacing:"0.15em", marginTop:4 }}>
@@ -2190,10 +2282,18 @@
           </div>
 
           {/* ══════ FOOTER ══════ */}
-          <div style={{ textAlign:"center", padding:"30px", borderTop:"1px solid #E8DCC8",
+          <div style={{ textAlign:"center", padding:"28px 30px 12px", borderTop:"1px solid #E8DCC8",
             fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"#A09080",
             letterSpacing:"0.15em" }}>
             上海大学埃及学研究中心数据库 · DATABASE OF THE CENTER FOR EGYPTOLOGY, SHANGHAI UNIVERSITY · SUPABASE LIVE
+          </div>
+
+          {/* ══════ CREDITS ══════ */}
+          <div style={{ textAlign:"center", padding:"0 24px 30px", maxWidth:900, margin:"0 auto",
+            fontFamily:"'JetBrains Mono',monospace", fontSize:10.5, color:"#A09080",
+            letterSpacing:"0.1em", lineHeight:1.9 }}>
+            <div>© 2026 上海大学埃及学研究中心 · CENTER FOR EGYPTOLOGY, SHANGHAI UNIVERSITY</div>
+            <FooterMeta />
           </div>
         </div>
       );
